@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh search *)",
+      "WebFetch(domain:github.com)",
+      "Bash(claude plugins *)",
+      "Bash(claude plugin *)",
+      "Bash(npm search *)",
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(npm root *)",
+      "Read(//d/computer_science/node_js/global/node_modules/claude-hud/**)",
+      "Bash(npx claude-hud *)"
+    ]
+  }
+}
