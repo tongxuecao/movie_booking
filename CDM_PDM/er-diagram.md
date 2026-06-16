@@ -23,176 +23,7 @@
 
 ---
 
-## 二、实体-关系图（Mermaid 语法）
-
-```mermaid
-erDiagram
-    USERS ||--o{ ORDERS : "下单"
-    USERS ||--o{ REVIEWS : "评价"
-    USERS ||--o{ TEMP_SEAT_LOCKS : "锁座"
-    USERS ||--o{ NOTIFICATIONS : "接收通知"
-
-    MOVIES ||--o{ SHOWTIMES : "排片"
-    MOVIES ||--o{ REVIEWS : "被评价"
-    MOVIES ||--o{ MOVIE_IMAGES : "拥有图片"
-
-    CINEMAS ||--o{ HALLS : "拥有"
-
-    HALLS ||--o{ SEATS : "包含"
-    HALLS ||--o{ SHOWTIMES : "放映"
-
-    SHOWTIMES ||--o{ ORDERS : "被订购"
-    SHOWTIMES ||--o{ TEMP_SEAT_LOCKS : "锁座"
-
-    ORDERS ||--o{ PAYMENTS : "对应支付"
-    ORDERS ||--o{ ORDER_SEATS : "包含座位"
-    ORDERS ||--o{ REVIEWS : "验证购买"
-
-    SEATS ||--o{ TEMP_SEAT_LOCKS : "被锁定"
-    SEATS ||--o{ ORDER_SEATS : "被选中"
-
-    USERS {
-        bigint id PK "用户ID"
-        varchar username UK "用户名"
-        varchar password "密码（加密）"
-        varchar phone "手机号"
-        enum role "角色：user/admin"
-        decimal wallet_balance "钱包余额"
-        int version "乐观锁版本号"
-        datetime created_at "注册时间"
-        datetime updated_at "更新时间"
-    }
-
-    MOVIES {
-        bigint id PK "电影ID"
-        varchar title "电影名称"
-        int duration "时长（分钟）"
-        date release_date "上映日期"
-        decimal rating "评分"
-        text description "简介"
-        enum status "状态：upcoming/showing/ended"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    MOVIE_IMAGES {
-        bigint id PK "图片ID"
-        bigint movie_id FK "电影ID"
-        varchar image_url "图片地址"
-        enum image_type "类型：poster/still/banner"
-        int sort_order "排序序号"
-        tinyint is_cover "是否封面海报"
-        datetime created_at "创建时间"
-    }
-
-    CINEMAS {
-        bigint id PK "影院ID"
-        varchar name "影院名称"
-        varchar address "地址"
-        varchar phone "联系电话"
-        enum status "状态：open/suspended/preparing/closed"
-        varchar business_hours "营业时间"
-        decimal longitude "经度"
-        decimal latitude "纬度"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    HALLS {
-        bigint id PK "影厅ID"
-        bigint cinema_id FK "所属影院ID"
-        varchar name "影厅名称"
-        int seat_rows "座位行数"
-        int seat_cols "座位列数"
-        enum hall_type "类型：normal/3d/imax/vip"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    SHOWTIMES {
-        bigint id PK "场次ID"
-        bigint movie_id FK "电影ID"
-        bigint hall_id FK "影厅ID"
-        date show_date "放映日期"
-        time show_time "放映时间"
-        decimal price "基础票价"
-        enum status "状态：normal/cancelled"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    SEATS {
-        bigint id PK "座位ID"
-        bigint hall_id FK "所属影厅ID"
-        int row_num "行号"
-        int col_num "列号"
-        enum seat_type "类型：normal/vip/couple"
-        enum status "物理状态：active/maintenance"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    TEMP_SEAT_LOCKS {
-        bigint id PK "锁座记录ID"
-        bigint showtime_id FK "场次ID"
-        bigint seat_id FK "座位ID"
-        bigint user_id FK "用户ID"
-        datetime locked_at "锁定时间"
-        datetime expires_at "过期时间"
-    }
-
-    ORDERS {
-        bigint id PK "订单ID"
-        varchar order_no UK "订单号"
-        bigint user_id FK "用户ID"
-        bigint showtime_id FK "场次ID"
-        decimal total_amount "总金额"
-        enum status "状态：pending/paid/refunded/cancelled"
-        datetime created_at "创建时间"
-        datetime updated_at "更新时间"
-    }
-
-    ORDER_SEATS {
-        bigint id PK "ID"
-        bigint order_id FK "订单ID"
-        bigint seat_id FK "座位ID"
-        decimal price "座位价格"
-    }
-
-    PAYMENTS {
-        bigint id PK "支付记录ID"
-        bigint order_id FK "订单ID"
-        bigint user_id FK "用户ID"
-        enum payment_method "方式：wallet"
-        decimal amount "支付金额"
-        enum status "状态：success/failed/refunded"
-        datetime created_at "支付时间"
-    }
-
-    REVIEWS {
-        bigint id PK "评价ID"
-        bigint user_id FK "用户ID"
-        bigint movie_id FK "电影ID"
-        bigint order_id FK "订单ID"
-        int rating "评分1-5"
-        text content "评价内容"
-        datetime created_at "评价时间"
-    }
-
-    NOTIFICATIONS {
-        bigint id PK "通知ID"
-        bigint user_id FK "用户ID"
-        varchar title "通知标题"
-        text content "通知内容"
-        enum type "类型：order/system"
-        enum status "状态：unread/read"
-        datetime created_at "创建时间"
-    }
-```
-
----
-
-## 三、实体关系图（文本表示）
+## 二、实体关系图（文本表示）
 
 ```
                               ┌─────────────┐
@@ -222,7 +53,7 @@ erDiagram
 │ role        │              │ seat_cols   │              │ rating      │
 │ wallet_bal  │              │ hall_type   │              │ description │
 │ version     │              │             │              │ status      │
-└──────┬──────┘              └──────┬──────┘              └──────┬──────┘
+└──────┬──────┘              └──────┬──────┘              |             |
        │                            │                     └──────┬──────┘
        │                            │ 1:N                        │
        │                            ▼                            │
@@ -413,48 +244,33 @@ USERS → ORDERS / REVIEWS / TEMP_SEAT_LOCKS / NOTIFICATIONS
 - 用户通过订单购买特定场次的座位，订单关联支付记录
 - 用户还可评价电影、接收系统通知
 
-### 7.3 关键关系说明
-
-#### 一对多（1:N）关系
-
-| 关系 | 含义 | 业务场景 |
-|------|------|---------|
-| USERS → ORDERS | 一个用户多个订单 | 用户可多次购票 |
-| MOVIES → SHOWTIMES | 一部电影多个场次 | 同一电影不同时间/影厅放映 |
-| CINEMAS → HALLS | 一个影院多个影厅 | 影院规模不同，影厅数量不同 |
-| HALLS → SEATS | 一个影厅多个座位 | 每个影厅有固定座位布局 |
-| SHOWTIMES → ORDERS | 一个场次多个订单 | 同一场次可被多人购买 |
-| MOVIES → MOVIE_IMAGES | 一部电影多张图片 | 海报、剧照、横幅分类管理 |
-
-#### 多对多（M:N）的中间表
-
-| 中间表 | 关联实体 | 说明 |
-|--------|---------|------|
-| ORDER_SEATS | ORDERS ↔ SEATS | 一个订单可选多个座位，一个座位可出现在不同历史订单中 |
-
-#### 非持久化实体
-
-| 实体 | 物理实现 | 说明 |
-|------|---------|------|
-| TEMP_SEAT_LOCKS | Redis + Lua 脚本 | 临时锁座，TTL 15 分钟自动过期，不存 MySQL |
-
 ### 7.4 实体属性设计原则
 
-1. **主键统一**：所有实体使用 `bigint id` 自增主键，简单高效
-2. **外键命名**：遵循 `{关联表名}_id` 规范，如 `user_id`、`movie_id`、`cinema_id`
-3. **时间戳**：所有实体均有 `created_at`，涉及状态变更的增加 `updated_at`
-4. **枚举约束**：状态类字段使用 `enum`，在数据库层面限制合法值
+1. **主键统一**：所有实体使用 `long integer 表名_id` 自增主键，简单高效
+
+2. **时间戳**：所有实体均有 `created_at`，涉及状态变更的增加 `updated_at`
+
+3. **枚举约束**：状态类字段使用 `enum`，在数据库层面限制合法值
+
    - 用户角色：`user` / `admin`
+
    - 电影状态：`upcoming` / `showing` / `ended`
+
    - 影院状态：`open` / `suspended` / `preparing` / `closed`
+
    - 订单状态：`pending` / `paid` / `refunded` / `cancelled`
+
    - 座位类型：`normal` / `vip` / `couple`
+
    - 座位物理状态：`active` / `maintenance`
-5. **乐观锁**：USERS 表 `version` 字段支持钱包余额并发扣款安全，SQL 形如 `UPDATE users SET wallet_balance = wallet_balance - ?, version = version + 1 WHERE id = ? AND version = ? AND wallet_balance >= ?`
+
+     在powerdesigner中使用不用的名字和code来表示不同表的状态，不然会相互绑定，共享同一个status。
+
+4. **乐观锁**：USERS 表 `version` 字段支持钱包余额并发扣款安全，SQL 形如 `UPDATE users SET wallet_balance = wallet_balance - ?, version = version + 1 WHERE id = ? AND version = ? AND wallet_balance >= ?`
+
 5. **业务编号**：订单表额外设置 `order_no`（唯一），便于用户查询和对外展示
+
 6. **图片分类**：MOVIE_IMAGES 通过 `image_type` 区分海报/剧照/横幅，`is_cover` 标记封面
-
-
 
 ## 八、各表属性详解
 
@@ -471,6 +287,60 @@ USERS → ORDERS / REVIEWS / TEMP_SEAT_LOCKS / NOTIFICATIONS
 | `version` | int | 乐观锁版本号，默认 0，每次扣款/退款时 `WHERE version = ?` 防止并发超扣 |
 | `created_at` | datetime | 注册时间 |
 | `updated_at` | datetime | 最后更新时间 |
+
+以下三个极其常见的真实业务场景，会瞬间触发多线程并发修改同一个钱包：
+
+#### 场景 1：用户在手机上“狂点/连击”购票按钮（最常见）
+
+- **过程**：前端没有做按钮置灰防重复点击，用户在网络卡顿或者心情激动时，连续点了 3 下“立即支付”。
+- **结果**：前端同时向后端发送了 3 个内容完全一样的支付请求。Tomcat 瞬间分配了 **3 个不同的线程**（线程 A、B、C），同时拿着这个用户的 `user_id` 去查余额、扣款。
+
+#### 场景 2：抢票脚本 / 恶意刷单
+
+- **过程**：某些懂技术的用户写了个 Python 抢票脚本，为了抢到首映场黄金位置，脚本在 0.001 秒内并发调用了你们的下单扣款接口 10 次。
+- **结果**：后端产生 **10 个线程** 抢着去修改这同一个 `wallet_balance`。
+
+#### 场景 3：退款与购票同时发生（业务交织）
+
+- **过程**：用户买了两场电影。18:00 的时候，他一边在手机上点击抢购周六的《金刚》，与此同时，他昨天申请的另一场电影退款刚好被后台管理员审核通过。
+- **结果**：
+  - **线程 A**（用户触发）：去执行**扣款** 50 元。
+  - **线程 B**（系统后台退款触发）：去执行**加款** 50 元。
+  - 两个线程在同一毫秒内，都在操作同一个 `id` 的用户钱包。
+
+
+
+解决方法：
+
+### 1. 为什么必须提前记录之前的 `version` 值？
+
+因为如果你不提前记录，你就没有办法把“你当时看到的版本”传给 SQL 语句中的 `#{currentVersion}`。
+
+整个业务流在 Java（后端）和 MySQL（数据库）之间是这样流转的：
+
+- **步骤 A（后端记录）**：用户发起请求，你的 Java 代码先执行一条查询语句：`SELECT wallet_balance, version FROM users WHERE id = 1;`。
+  - 此时，MySQL 返回数据。Java 拿到一个对象，里面写着：`wallet_balance = 100`, `version = 0`。
+  - **你的 Java 代码必须在内存里把这个 `0` 记在大脑里**（赋值给变量 `int currentVersion = user.getVersion();`）。
+- **步骤 B（后端发送更新请求）**：Java 开始准备扣款，把刚才记下来的 `currentVersion = 0` 塞进你的这条 `UPDATE` 语句中，发送给 MySQL。
+
+### 2. 在哪里判断“版本号在更新一瞬间改变了”？
+
+**就在数据库执行 `WHERE version = #{currentVersion}` 的那一物理瞬间。**
+
+MySQL 在执行 `UPDATE` 语句时，是自带排他锁（行锁）的。当你的更新请求到达时，MySQL 会锁定这一行，并去对 `WHERE` 后面的条件进行匹配：
+
+```sql
+UPDATE users 
+SET 
+  wallet_balance = wallet_balance - 50, 
+  version = version + 1
+WHERE 
+  id = #{userId} 
+  AND version = #{currentVersion}
+  AND wallet_balance >= 50;  -- 顺手兜底：确保余额足够扣
+```
+
+
 
 ---
 
@@ -611,6 +481,16 @@ USERS → ORDERS / REVIEWS / TEMP_SEAT_LOCKS / NOTIFICATIONS
 > 视角 A：一个订单可以对应多个座位吗？ —— **可以** 
 >
 > 视角 B：一个座位可以对应多个订单吗？ —— **可以（在不同时间段）** 
+>
+> ORDER_SEATS.seat_id 关联 SEATS 不是为了查"有没有被卖"，而是为了回答另外两个问题：
+>
+>   1. 这个座位在哪？
+>
+>     用户买了票，票面上要显示"3排5座"。这个位置信息（row_num、col_num）存在 SEATS 表里，ORDER_SEATS 通过 seat_id 拿到它。
+>
+>   2. 这个座位为什么是这个价？
+>
+>     SEATS 的 seat_type（普通/VIP/情侣）决定了价格上浮比例。ORDER_SEATS 的 price 字段就是根据 seat_type 计算后落盘的结果。
 
 ---
 
@@ -678,6 +558,59 @@ USERS → ORDERS / REVIEWS / TEMP_SEAT_LOCKS / NOTIFICATIONS
 | 唯一约束 | `UK` 标记 | `username`、`order_no` 等业务唯一字段 |
 
 ---
+
+### Redis
+
+
+
+后端查数据的过程：
+
+先问 Redis（缓存命中）Redis 没有，再去问 MySQL（缓存击穿/不命中）后端拿到 MySQL 的数据后，在返回给前端的同时，会顺手执行一条指令，**把这份数据也往 Redis 里存一份**
+
+
+
+ Redis 是对于“整个服务器（全局）”来说的，而不是单个用户，Redis 是部署在后端服务器集群旁边的**全局共享动态仓库**。
+
+工业界如何解决“第一次慢”？—— 缓存预热（Cache Warm-up）
+
+
+
+误区：**Redis 并不是直接跑去帮你快速读取 MySQL 数据库里的数据。**
+
+MySQL 和 Redis 是两套完全独立的数据库软件，它们之间**默认是没有任何联动和通信的**。
+
+
+
+座位实时状态
+
+因为“已被买”是针对**某一特定场次**而言的，所以它完美的表达方式是：**当一个座位（`SEATS`）与一个有效订单（`ORDERS`）通过中间表（`ORDER_SEATS`）产生关联，且该订单对应的场次正是当前场次时，就代表该座位已被买。**
+
+在 Mermaid 语法或可视化 E-R 图中，你不需要为“已被买”多画一个实体，而是通过强调它们之间的连线来体现：
+
+Code snippet
+
+```mermaid
+erDiagram
+    SHOWTIMES ||--o{ ORDERS : "包含多个"
+    ORDERS ||--o{ ORDER_SEATS : "包含多个"
+    SEATS ||--o{ ORDER_SEATS : "被选中"
+```
+
+
+
+- **如何判定已被买：** 后端在渲染选座页面时，执行一条查询：`SELECT seat_id FROM order_seats WHERE order_id IN (SELECT id FROM orders WHERE showtime_id = 场次ID AND status = 'paid')`。 查询出来的所有 `seat_id`，在前端全部渲染为**红色（已售）**。
+
+
+
+
+
+
+
+系统功能结构图直线
+
+选择其中的模块程序流程图有箭头
+
+
 
 *文档创建日期：2026-06-10*
 *基于 PowerDesigner DFD 文件生成*
