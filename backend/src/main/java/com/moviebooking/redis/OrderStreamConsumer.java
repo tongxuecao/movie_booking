@@ -8,7 +8,6 @@ import com.moviebooking.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -17,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class OrderStreamConsumer {
@@ -32,11 +32,7 @@ public class OrderStreamConsumer {
     private final UserRepository userRepository;
     private final SeatLockService seatLockService;
 
-    private static final String STREAM_KEY = "order:stream";
-    private static final String GROUP_NAME = "order-processing-group";
-    private static final String CONSUMER_NAME = "consumer-1";
-
-    private boolean groupInitialized = false;
+    private static final String QUEUE_KEY = "order:queue";
 
     @Autowired
     public OrderStreamConsumer(StringRedisTemplate redisTemplate, OrderRepository orderRepository,
@@ -54,57 +50,40 @@ public class OrderStreamConsumer {
     }
 
     /**
-     * 每 500ms 消费一次 Stream 中的订单消息
+     * 每 500ms 从 Redis List 中消费一条订单消息
      */
     @Scheduled(fixedDelay = 500)
     public void consume() {
         try {
-            if (!groupInitialized) {
-                initConsumerGroup();
-                groupInitialized = true;
-            }
-
-            List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream().read(
-                    Consumer.from(GROUP_NAME, CONSUMER_NAME),
-                    StreamReadOptions.empty().count(1).block(java.time.Duration.ofMillis(200)),
-                    StreamOffset.create(STREAM_KEY, ReadOffset.lastConsumed())
-            );
-
-            if (records == null || records.isEmpty()) {
+            // BLPOP: 阻塞式左弹出，等待最多 200ms
+            String message = redisTemplate.opsForList().leftPop(QUEUE_KEY, 200, TimeUnit.MILLISECONDS);
+            if (message == null || message.isEmpty()) {
                 return;
             }
 
-            for (MapRecord<String, Object, Object> record : records) {
-                try {
-                    processOrder(record);
-                    redisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP_NAME, record.getId());
-                } catch (Exception e) {
-                    log.error("处理订单消息失败: id={}", record.getId(), e);
-                    // 处理失败的消息不 ack，后续可重试
-                }
+            try {
+                processOrder(message);
+            } catch (Exception e) {
+                log.error("处理订单消息失败: {}", message, e);
             }
         } catch (Exception e) {
-            log.error("消费 Stream 异常", e);
-        }
-    }
-
-    private void initConsumerGroup() {
-        try {
-            redisTemplate.opsForStream().createGroup(STREAM_KEY, GROUP_NAME);
-        } catch (Exception e) {
-            // Group 可能已存在
-            log.debug("Consumer group 已存在或创建失败: {}", e.getMessage());
+            log.error("消费队列异常", e);
         }
     }
 
     @Transactional
-    public void processOrder(MapRecord<String, Object, Object> record) {
-        Map<Object, Object> value = record.getValue();
-        String orderNo = (String) value.get("orderNo");
-        Long userId = Long.parseLong((String) value.get("userId"));
-        Long showtimeId = Long.parseLong((String) value.get("showtimeId"));
-        String seatIdsStr = (String) value.get("seatIds");
-        String lockToken = (String) value.get("lockToken");
+    public void processOrder(String message) {
+        // 解析消息: orderNo|userId|showtimeId|seatIds|lockToken
+        String[] parts = message.split("\\|");
+        if (parts.length < 5) {
+            log.error("消息格式错误: {}", message);
+            return;
+        }
+
+        String orderNo = parts[0];
+        Long userId = Long.parseLong(parts[1]);
+        Long showtimeId = Long.parseLong(parts[2]);
+        String seatIdsStr = parts[3];
 
         List<Long> seatIds = Arrays.stream(seatIdsStr.split(","))
                 .map(Long::parseLong)
@@ -112,7 +91,7 @@ public class OrderStreamConsumer {
 
         log.info("处理订单: orderNo={}, userId={}, showtimeId={}, seatIds={}", orderNo, userId, showtimeId, seatIdsStr);
 
-        // 1. 验证 lockToken（检查锁是否仍然有效）
+        // 1. 验证锁是否仍然有效
         if (!seatLockService.isLockedByUser(showtimeId, userId, seatIds)) {
             log.warn("锁已过期或无效: orderNo={}", orderNo);
             createFailedOrder(orderNo, userId, showtimeId, BigDecimal.ZERO, "座位锁已过期");

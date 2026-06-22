@@ -1,141 +1,67 @@
 # CLAUDE.md
 
-本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指引。
+电影票预订系统 — 课设项目，目标快速交付高分。
 
-## 项目概述
-
-电影票预订系统 — 一个月周期的课设/期末项目，目标是快速交付并拿到高分。系统支持用户浏览电影、选座、虚拟钱包支付、查看订单；管理端负责电影/影院/排片/订单管理和数据统计。
-
-## 技术栈（已确认）
+## 技术栈
 
 | 层级 | 选型 |
 |------|------|
-| 前端 | Vue 3 + Vite + Vant 4（浏览器 H5） |
-| 后端 | Spring Boot 3（单体架构） |
+| 前端 | Vue 3 + Vite + Vant 4 |
+| 后端 | Spring Boot 3.2.5 (单体) |
 | 数据库 | MySQL 8.0 |
-| 缓存 + 锁座 | Redis + Lua 脚本（原子锁座，答辩核心亮点） |
-| 异步削峰 | Redis Stream（订单异步处理） |
-| 支付 | 虚拟钱包（注册送 1000 元） |
-| 认证 | JWT Token（`Authorization: Bearer {token}`） |
-| 部署 | 本地单机 |
+| 缓存 | Redis (锁座 + 订单流) |
+| 认证 | JWT |
+| 支付 | 虚拟钱包 (注册送 1000) |
 
-## 系统架构
+## 后端结构 (78 个 Java 文件)
 
 ```
-前端（Vue3 / Vite / Vant4）
-    │
-    ▼
-RESTful API（http://localhost:8080/api）
-    │
-    ├── 用户模块（/api/user/*）
-    ├── 电影模块（/api/movie/*）
-    ├── 影院与场次模块（/api/cinema/*、/api/showtime/*）
-    ├── 订单模块（/api/order/*）—— 核心：Redis Lua 锁座 + Redis Stream 异步下单
-    ├── 管理后台模块（/api/admin/*）—— RBAC 权限控制，需 admin 角色
-    └── 文件上传模块（/api/upload/*）
-    │
-    ▼
-MySQL 8.0（持久化）+ Redis（座位锁、订单流、缓存）
+backend/src/main/java/com/moviebooking/
+├── controller/     # 9 个控制器 (User/Movie/Cinema/Showtime/Order/Admin/Upload/Review/Notification)
+├── service/        # 9 个服务类
+├── repository/     # 12 个 JPA Repository
+├── entity/         # 9 个实体 + 11 个枚举
+├── dto/            # 11 个请求 DTO
+├── config/         # JWT拦截器、Redis配置、Web配置
+├── redis/          # SeatLockService、OrderStreamProducer/Consumer
+├── common/         # ApiResult、异常处理、分页
+└── util/           # JwtUtil、订单号生成
 ```
 
-## 核心技术决策
+## 核心流程
 
-- **座位锁定**：Redis Lua 脚本原子执行「检查所有座位是否可用 → 全部锁定」，TTL 15 分钟。冲突返回 409 + `conflictSeatIds`。
-- **订单创建**：请求进入 Redis Stream 队列，同步返回"排队中"。前端每 2 秒轮询 `GET /api/order/status/{orderNo}`。
-- **支付机制**：虚拟钱包 + 乐观锁（`WHERE wallet_balance >= ?`）。退票时退款返还钱包。
-- **座位定价**：情侣座必须成对选择，价格上浮 100%；VIP 座上浮 50%。
+```
+选座 → Redis Lua 原子锁座 (15分钟TTL)
+    → 创建订单 → Redis Stream 异步处理
+    → 虚拟钱包支付 (乐观锁)
+    → 前端轮询订单状态
+```
 
 ## API 约定
 
-- 统一响应格式：`{ "code": 200, "message": "success", "data": {...} }`
-- 分页参数：`page`（从 1 开始）、`size`（默认 10）。响应包含 `list`、`total`、`page`、`size`。
-- 错误码：200 成功、400 参数错误、401 未登录、403 无权限、404 资源不存在、409 冲突、500 服务器错误。
-- 完整接口文档：`docs/api-spec.md`（共 27 个接口）。
+- 基础路径: `http://localhost:8080/api`
+- 响应格式: `{ "code": 200, "message": "success", "data": {...} }`
+- 认证: `Authorization: Bearer {token}`
+- 分页: `page`(从1开始)、`size`(默认10)
+- 完整接口文档: `docs/api-spec.md` (27 个接口)
 
-## 项目结构
+## 关键配置
 
-```
-docs/                          # 设计文档
-├── 2026-05-26-movie-ticket-booking-system-design.md  # 完整 SDLC 设计文档
-├── api-spec.md                # 前后端 API 接口规范（27 个接口）
-└── superpowers/specs/         # （预留，暂空）
-```
+| 配置项 | 文件 | 值 |
+|--------|------|-----|
+| 数据库 | application.yml | movie_ticket, root/clh123456 |
+| Redis | application.yml | localhost:6379,password:clh123456 |
+| JWT | application.yml | 7天过期 |
+| 座位锁 | application.yml | TTL 900秒 (15分钟) |
 
-## 开发时间表
+## 测试相关
 
-- 第一周：Spring Boot 初始化 + MySQL 建表 + Redis 安装 + 用户/电影/影院 CRUD + 前端骨架
-- 第二周：Redis Lua 锁座 + 虚拟钱包 + 创建订单 + 前端选座页面
-- 第三周：Redis Stream 异步下单 + 管理后台 + 前端防抖
-- 第四周：JMeter 压测（1000 并发）+ 零超卖验证 + Bug 修复 + 答辩 PPT
+- 测试报告: `docs/backend-test-report-2026-06-21.md`
+- Redis 测试指南: `docs/redis-test-guide.md`
 
-## 数据库概要
+## 行为准则
 
-8 张核心表：`users`、`movies`、`cinemas`、`halls`、`showtimes`、`seats`、`orders`、`payments`。完整建表语句见 `docs/2026-05-26-movie-ticket-booking-system-design.md` 第 4.1 节。
-
-## 前后端协作
-
-前端根据 `docs/api-spec.md` 使用 Mock 数据并行开发，后端实现 27 个接口。关键集成点是「锁座 → 创建订单 → 轮询订单状态」这一核心流程。
-
-## 行为准则（Andrej Karpathy Guidelines）
-
-减少常见 LLM 编码错误的行为指南。权衡：这些指南偏向谨慎而非速度，简单任务自行判断。
-
-### 1. 编码前先思考
-
-**不要假设，不要隐藏困惑，暴露权衡。**
-
-实现前：
-- 明确陈述你的假设。不确定就问。
-- 存在多种解读时，列出来——不要默默选择一个。
-- 有更简单的方案就说出来。该推回就推回。
-- 不清楚就停下来。说清楚哪里困惑，然后提问。
-
-### 2. 简单优先
-
-**最少代码解决问题，不做投机性设计。**
-
-- 不做超出要求的功能。
-- 不为一次性代码创建抽象。
-- 不添加未要求的"灵活性"或"可配置性"。
-- 不为不可能的场景写错误处理。
-- 200 行能 50 行搞定就重写。
-
-自问："高级工程师会觉得这过度复杂吗？"是就简化。
-
-### 3. 精准修改
-
-**只动必须动的，只清理自己制造的混乱。**
-
-编辑现有代码时：
-- 不要"顺手改进"相邻代码、注释或格式。
-- 不要重构没坏的东西。
-- 匹配现有风格，即使你会写得不同。
-- 发现无关的死代码，提一下——不要删。
-
-你的修改产生孤立代码时：
-- 移除你自己改动导致的未使用导入/变量/函数。
-- 不要移除改动前就存在的死代码（除非被要求）。
-
-检验标准：每一行改动都能直接追溯到用户的需求。
-
-### 4. 目标驱动执行
-
-**定义成功标准，循环直到验证通过。**
-
-将任务转化为可验证的目标：
-- "加验证" → "为无效输入写测试，然后让测试通过"
-- "修 bug" → "写一个复现它的测试，然后让测试通过"
-- "重构 X" → "确保重构前后测试都通过"
-
-多步任务列出简要计划：
-```
-1. [步骤] → 验证：[检查项]
-2. [步骤] → 验证：[检查项]
-3. [步骤] → 验证：[检查项]
-```
-
-强成功标准让你能独立循环。弱标准（"搞定就行"）需要不断澄清。
-
----
-
-中文回答
+- 中文回答
+- 简单优先，最少代码解决问题
+- 精准修改，只动必须动的
+- 编码前先思考，不确定就问

@@ -4,9 +4,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,9 +26,18 @@ public class SeatLockService {
     private static final String LOCK_KEY_PREFIX = "seat:lock:";
     private static final String USER_LOCK_PREFIX = "user:lock:";
 
+    private DefaultRedisScript<List> lockSeatsScript;
+
     @Autowired
     public SeatLockService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
+    }
+
+    @PostConstruct
+    public void init() {
+        lockSeatsScript = new DefaultRedisScript<>();
+        lockSeatsScript.setLocation(new ClassPathResource("lua/lock_seats.lua"));
+        lockSeatsScript.setResultType(List.class);
     }
 
     /**
@@ -45,19 +57,18 @@ public class SeatLockService {
             return "user_already_locked";
         }
 
-        // 使用原生 Redis 操作模拟 Lua 脚本（简化版，生产环境应用真正的 Lua 脚本）
-        // 检查所有座位是否可用
-        for (String key : keys) {
-            String val = redisTemplate.opsForValue().get(key);
-            if (val != null && !val.isEmpty()) {
-                return key; // 返回冲突的 key
-            }
-        }
+        // 执行 Lua 脚本原子锁座
+        List<?> result = redisTemplate.execute(
+                lockSeatsScript,
+                keys,
+                String.valueOf(userId),
+                String.valueOf(lockTtlSeconds)
+        );
 
-        // 全部锁定
-        for (String key : keys) {
-            redisTemplate.opsForValue().set(key, String.valueOf(userId));
-            redisTemplate.expire(key, java.time.Duration.ofSeconds(lockTtlSeconds));
+        long success = ((Number) result.get(0)).longValue();
+        if (success == 0) {
+            // 返回冲突的 key（Lua 脚本返回的第二个元素）
+            return result.get(1).toString();
         }
 
         // 记录用户的锁定信息（用于后续创建订单）
