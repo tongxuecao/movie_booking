@@ -1,531 +1,949 @@
-# 电影票预订系统 — 软件工程设计流程
+# 电影票预订系统 — 软件工程课程设计文档
 
-## 项目概述
-
-本文档记录电影票预订系统的完整软件工程设计过程，遵循标准的软件开发生命周期（SDLC）。
-
-### 已确认决策
-
-| 决策项 | 结论 | 说明 |
-|--------|------|------|
-| **项目定位** | 课设/期末项目 | 目标：快速交付 + 技术亮点拿高分 |
-| **项目周期** | 1 个月 | 4 周极限通关 |
-| **前端方案** | Vue3 + Vite + Vant 4 | 浏览器端，先跑起来 |
-| **后端技术栈** | Spring Boot 3 | 单体架构 |
-| **数据库** | MySQL 8.0 | 本地安装 |
-| **缓存** | Redis | 座位锁 + Lua 原子脚本（答辩核心亮点） |
-| **异步削峰** | Redis Stream | 订单异步处理（技术亮点） |
-| **支付方式** | 虚拟钱包 | 注册送 1000 元，完整交易闭环 |
-| **部署** | 本地单机 | 零成本，单机伪集群 |
-| **压测** | JMeter 1000 并发 | 压测报告截图作为答辩证据 |
-| **角色分工** | 你负责后端 | 前端同学按 API 文档并行开发 |
+> 本文档是电影票预订系统的完整软件工程设计文档，涵盖从需求分析到编码实现的全生命周期，可直接作为课程设计报告的参考框架。
 
 ---
 
-## 第一阶段：问题定义与可行性分析
+## 项目信息
 
-### 1.1 问题定义
-
-明确系统要解决的核心问题：
-
-- 用户需要在线浏览电影信息、选择场次、预订座位并完成支付
-- 影院需要管理电影排片、座位库存和订单
-- 系统需要处理并发预订，避免超卖
-
-### 1.2 可行性分析
-
-| 维度 | 分析内容 |
-|------|----------|
-| **技术可行性** | 前后端技术栈选型、第三方支付接口、座位锁机制 |
-| **经济可行性** | 开发成本、运维成本、预期收益 |
-| **操作可行性** | 用户使用习惯、操作界面友好度 |
-| **时间可行性** | 项目周期、里程碑规划 |
-
-**产出物：** 可行性分析报告
+| 项目 | 说明 |
+|------|------|
+| **项目名称** | 电影票预订系统 (Movie Ticket Booking System) |
+| **项目类型** | 软件工程课程设计 |
+| **项目周期** | 2026年5月26日 - 2026年6月30日（5周） |
+| **技术栈** | Vue 3 + Spring Boot 3.2.5 + MySQL 8.0 + Redis |
+| **项目目标** | 完成可运行的电影票预订系统，具备高并发处理能力 |
 
 ---
 
-## 第二阶段：需求分析
+## 第一章 项目概述与可行性分析
+
+### 1.1 项目背景
+
+随着互联网技术的发展，在线电影票预订已成为人们日常娱乐生活的重要组成部分。本项目旨在设计并实现一个功能完整的电影票预订系统，支持用户在线浏览电影、选择场次、预订座位并完成支付。
+
+### 1.2 系统目标
+
+1. **功能完整性**：实现用户注册登录、电影浏览、场次查询、在线选座、订单管理、虚拟支付等核心功能
+2. **高并发处理**：采用 Redis Lua 脚本实现原子锁座，支持 1000+ 并发用户
+3. **数据一致性**：通过乐观锁机制保证钱包余额并发操作的安全性
+4. **用户体验**：响应式界面设计，页面加载时间 < 2秒
+
+### 1.3 可行性分析
+
+#### 1.3.1 技术可行性
+
+| 技术领域 | 选型方案 | 可行性说明 |
+|----------|----------|------------|
+| 前端框架 | Vue 3 + Vant 4 | 成熟的移动端 UI 框架，组件丰富 |
+| 后端框架 | Spring Boot 3.2.5 | 企业级 Java 框架，生态完善 |
+| 数据库 | MySQL 8.0 | 开源关系型数据库，性能稳定 |
+| 缓存中间件 | Redis | 内存数据库，支持 Lua 脚本原子操作 |
+| 认证方案 | JWT | 无状态认证，适合前后端分离架构 |
+
+#### 1.3.2 经济可行性
+
+| 成本项 | 说明 |
+|--------|------|
+| 开发工具 | 全部使用开源免费工具（VS Code、IntelliJ IDEA Community） |
+| 服务器 | 本地开发环境，零成本 |
+| 第三方服务 | 虚拟钱包替代真实支付，无需企业资质 |
+
+#### 1.3.3 操作可行性
+
+- 用户界面采用移动端优先设计，符合用户使用习惯
+- 管理后台提供直观的数据管理界面
+- 系统部署简单，本地即可运行
+
+---
+
+## 第二章 需求分析
 
 ### 2.1 功能需求
 
-#### 用户端功能
-- 用户注册与登录
-- 浏览电影列表（正在上映、即将上映）
-- 查看电影详情（简介、评分、演职员表）
-- 选择影院、场次、座位
-- 在线支付（模拟支付，后续可扩展支付宝/微信）
-- 查看订单历史
-- 退票/改签
-- 评价电影
+#### 2.1.1 用户端功能
 
-#### 管理端功能
-- 电影信息管理（增删改查）
-- 影院与影厅管理
-- 排片管理（场次、时间、票价）
-- 订单管理
-- 用户管理
-- 数据统计与报表
+| 功能模块 | 功能点 | 优先级 |
+|----------|--------|--------|
+| 用户管理 | 注册、登录、个人信息修改 | P0 |
+| 电影浏览 | 电影列表、电影详情、搜索 | P0 |
+| 场次查询 | 按电影/影院/日期筛选场次 | P0 |
+| 在线选座 | 座位图展示、座位选择、锁座 | P0 |
+| 订单管理 | 创建订单、支付、查看订单、退票 | P0 |
+| 电影评价 | 发表评价、查看评价 | P1 |
+| 系统通知 | 订单状态通知、系统公告 | P2 |
+
+#### 2.1.2 管理端功能
+
+| 功能模块 | 功能点 | 优先级 |
+|----------|--------|--------|
+| 电影管理 | 增删改查电影信息 | P0 |
+| 影院管理 | 影院、影厅管理 | P0 |
+| 排片管理 | 创建场次、批量排片 | P0 |
+| 订单管理 | 查看订单、订单详情 | P1 |
+| 数据统计 | 今日统计、趋势分析、热门电影 | P2 |
 
 ### 2.2 非功能需求
 
-| 类别 | 要求 |
-|------|------|
-| **性能** | 页面加载 < 2秒，支持 1000+ 并发用户 |
-| **可用性** | 系统可用性 99.9%，支持 7×24 小时 |
-| **安全性** | HTTPS、支付加密、SQL注入防护、XSS防护 |
-| **可扩展性** | 支持水平扩展，模块化架构 |
+| 需求类型 | 具体要求 |
+|----------|----------|
+| **性能** | 页面加载 < 2秒，API 响应 < 200ms |
+| **并发** | 支持 1000+ 并发用户，座位零超卖 |
+| **安全** | JWT 认证、SQL 注入防护、XSS 防护 |
+| **可用性** | 系统可用性 99.9% |
 | **兼容性** | 支持主流浏览器（Chrome、Firefox、Safari、Edge） |
 
 ### 2.3 用例分析
 
-**核心用例：**
+#### 2.3.1 核心用例列表
+
+| 用例编号 | 用例名称 | 参与者 | 简要描述 |
+|----------|----------|--------|----------|
+| UC01 | 用户注册 | 普通用户 | 用户填写信息完成注册，系统自动创建虚拟钱包 |
+| UC02 | 用户登录 | 普通用户/管理员 | 用户名密码登录，获取 JWT Token |
+| UC03 | 浏览电影列表 | 普通用户 | 查看正在上映、即将上映的电影 |
+| UC04 | 查看电影详情 | 普通用户 | 查看电影简介、评分、演职员表 |
+| UC05 | 选择场次与座位 | 普通用户 | 选择影院、场次，查看座位图并选座 |
+| UC06 | 提交订单 | 普通用户 | 确认选座，提交订单到异步队列 |
+| UC07 | 在线支付 | 普通用户 | 使用虚拟钱包完成支付 |
+| UC08 | 查看订单 | 普通用户 | 查看订单列表和订单详情 |
+| UC09 | 退票申请 | 普通用户 | 申请退票，系统退款至钱包 |
+| UC10 | 管理电影信息 | 管理员 | 增删改查电影信息 |
+| UC11 | 管理排片 | 管理员 | 创建场次、批量排片 |
+| UC12 | 查看统计报表 | 管理员 | 查看今日统计、趋势分析 |
+
+#### 2.3.2 用例图
 
 ```
-UC01 - 用户注册
-UC02 - 用户登录
-UC03 - 浏览电影列表
-UC04 - 查看电影详情
-UC05 - 选择场次与座位
-UC06 - 提交订单
-UC07 - 在线支付
-UC08 - 查看订单
-UC09 - 退票申请
-UC10 - 管理电影信息
-UC11 - 管理排片
-UC12 - 查看统计报表
+                          ┌─────────────────────────────────────┐
+                          │          电影票预订系统              │
+                          │                                     │
+┌─────────┐               │  ┌─────────┐  ┌─────────┐         │
+│         │──────────────▶│  │ 用户注册 │  │ 用户登录 │         │
+│         │──────────────▶│  └─────────┘  └─────────┘         │
+│         │               │                                     │
+│         │──────────────▶│  ┌─────────┐  ┌─────────┐         │
+│  普通   │               │  │浏览电影 │  │电影详情 │         │
+│  用户   │──────────────▶│  └─────────┘  └─────────┘         │
+│         │               │                                     │
+│         │──────────────▶│  ┌─────────┐  ┌─────────┐         │
+│         │               │  │选择场次 │  │在线选座 │         │
+│         │──────────────▶│  └─────────┘  └─────────┘         │
+│         │               │                                     │
+│         │──────────────▶│  ┌─────────┐  ┌─────────┐         │
+│         │               │  │提交订单 │  │在线支付 │         │
+│         │──────────────▶│  └─────────┘  └─────────┘         │
+│         │               │                                     │
+└─────────┘               │  ┌─────────┐  ┌─────────┐         │
+                          │  │查看订单 │  │退票申请 │         │
+                          │  └─────────┘  └─────────┘         │
+                          │                                     │
+┌─────────┐               │  ┌─────────┐  ┌─────────┐         │
+│         │──────────────▶│  │电影管理 │  │影院管理 │         │
+│  管理员  │──────────────▶│  └─────────┘  └─────────┘         │
+│         │               │                                     │
+│         │──────────────▶│  ┌─────────┐  ┌─────────┐         │
+│         │               │  │排片管理 │  │数据统计 │         │
+└─────────┘               │  └─────────┘  └─────────┘         │
+                          │                                     │
+                          └─────────────────────────────────────┘
 ```
-
-**产出物：** 需求规格说明书（SRS）、用例图、用例描述文档
 
 ---
 
-## 第三阶段：系统设计（概要设计）
+## 第三章 系统设计
 
 ### 3.1 系统架构设计
 
-采用分层架构：
+#### 3.1.1 整体架构
+
+采用前后端分离的单体架构：
 
 ```
-┌─────────────────────────────────────────┐
-│              表现层 (Presentation)        │
-│    Web前端 / 移动端 H5 / 管理后台         │
-├─────────────────────────────────────────┤
-│              接口层 (API Gateway)         │
-│         RESTful API / WebSocket          │
-├─────────────────────────────────────────┤
-│              业务层 (Business Logic)      │
-│  用户服务 │ 电影服务 │ 订单服务 │ 支付服务 │
-├─────────────────────────────────────────┤
-│              数据层 (Data Access)         │
-│       MySQL 8.0 │ Redis                   │
-├─────────────────────────────────────────┤
-│              基础设施层 (Infrastructure)   │
-│    服务器 │ 负载均衡 │ CDN │ 日志监控      │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        前端层                                │
+│              Vue 3 + Vite + Vant 4 (移动端H5)                │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTP/REST API
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       后端层                                 │
+│                 Spring Boot 3.2.5 (单体)                     │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Controller → Service → Repository → Database        │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Redis: Lua脚本(锁座) + Stream(异步订单)              │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│   MySQL 8.0   │   │    Redis      │   │   文件存储    │
+│   (持久化)    │   │   (缓存+锁)   │   │  (上传文件)   │
+└───────────────┘   └───────────────┘   └───────────────┘
+```
+
+#### 3.1.2 后端分层架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Controller 层                             │
+│    UserController, MovieController, OrderController...      │
+│    (接收请求，参数校验，返回响应)                            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Service 层                               │
+│    UserService, MovieService, OrderService...               │
+│    (业务逻辑处理，事务管理)                                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  Repository   │   │  Redis        │   │  其他服务     │
+│  (数据访问)   │   │  (缓存/锁)    │   │  (文件上传)   │
+└───────────────┘   └───────────────┘   └───────────────┘
 ```
 
 ### 3.2 模块划分
 
-| 模块 | 职责 | 关键技术 |
-|------|------|----------|
-| 用户模块 | 注册、登录、个人信息管理 | JWT、OAuth2 |
-| 电影模块 | 电影信息展示、搜索 | 全文检索 |
-| 影院模块 | 影院信息、排片管理 | 地理位置服务 |
-| 订单模块 | 下单、锁座、订单状态管理 | 分布式锁、状态机 |
-| 支付模块 | 支付对接、退款处理 | 第三方支付SDK |
-| 管理模块 | 后台管理功能 | RBAC权限控制 |
+| 模块 | 对应包名 | 职责 | 核心类 |
+|------|----------|------|--------|
+| 用户模块 | controller.user, service | 注册、登录、个人信息管理 | UserController, UserService |
+| 电影模块 | controller.movie, service | 电影信息展示、搜索 | MovieController, MovieService |
+| 影院模块 | controller.cinema, service | 影院信息、影厅管理 | CinemaController, CinemaService |
+| 场次模块 | controller.showtime, service | 排片查询、座位图 | ShowtimeController, ShowtimeService |
+| 订单模块 | controller.order, service | 锁座、下单、支付、退票 | OrderController, OrderService |
+| 管理模块 | controller.admin, service | 后台管理功能 | AdminController, AdminService |
+| 上传模块 | controller.upload, service | 文件上传 | UploadController, UploadService |
+| 评价模块 | controller.review, service | 电影评价 | ReviewController, ReviewService |
+| 通知模块 | controller.notification, service | 系统通知 | NotificationController, NotificationService |
 
 ### 3.3 接口设计
 
-定义各模块间的接口契约：
+#### 3.3.1 API 规范
 
+| 项目 | 值 |
+|------|-----|
+| Base URL | `http://localhost:8080/api` |
+| 数据格式 | JSON |
+| 字符编码 | UTF-8 |
+| 认证方式 | JWT Token (`Authorization: Bearer {token}`) |
+
+#### 3.3.2 统一响应格式
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": { ... }
+}
 ```
-API 示例：
-GET    /api/movies              # 获取电影列表
-GET    /api/movies/{id}         # 获取电影详情
-GET    /api/cinemas             # 获取影院列表
-GET    /api/showtimes/{movieId} # 获取场次信息
-POST   /api/orders              # 创建订单
-PUT    /api/orders/{id}/pay     # 支付订单
-DELETE /api/orders/{id}         # 取消订单
-```
 
-### 3.4 数据库概要设计
+#### 3.3.3 核心接口列表
 
-**核心实体：**
-- User（用户）
-- Movie（电影）
-- Cinema（影院）
-- Hall（影厅）
-- Showtime（场次）
-- Seat（座位）
-- Order（订单）
-- Payment（支付记录）
+| 模块 | 接口 | 方法 | 说明 |
+|------|------|------|------|
+| 用户 | /api/user/register | POST | 用户注册 |
+| 用户 | /api/user/login | POST | 用户登录 |
+| 用户 | /api/user/profile | GET | 获取用户信息 |
+| 电影 | /api/movie/list | GET | 电影列表 |
+| 电影 | /api/movie/{id} | GET | 电影详情 |
+| 影院 | /api/cinema/list | GET | 影院列表 |
+| 场次 | /api/showtime/list | GET | 场次列表 |
+| 场次 | /api/showtime/{id}/seats | GET | 座位图 |
+| 订单 | /api/order/lock | POST | 锁定座位 |
+| 订单 | /api/order/create | POST | 创建订单 |
+| 订单 | /api/order/status/{orderNo} | GET | 订单状态 |
+| 订单 | /api/order/{orderNo} | GET | 订单详情 |
+| 订单 | /api/order/cancel/{orderNo} | POST | 取消订单 |
+| 管理 | /api/admin/movie | POST | 新增电影 |
+| 管理 | /api/admin/showtime | POST | 新增场次 |
+| 管理 | /api/admin/statistics | GET | 数据统计 |
 
-**产出物：** 系统架构设计文档、接口文档、ER图
+> 完整接口文档见 `docs/api-spec.md`（27个接口）
 
 ---
 
-## 第四阶段：详细设计
+## 第四章 数据库设计
 
-### 4.1 数据库详细设计
+### 4.1 概念结构设计（E-R图）
 
-#### 核心表结构（MySQL 8.0）
-
-```sql
--- 用户表
-CREATE TABLE users (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    username    VARCHAR(50) UNIQUE NOT NULL,
-    password    VARCHAR(255) NOT NULL,
-    phone       VARCHAR(20),
-    email       VARCHAR(100),
-    avatar      VARCHAR(255),
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- 电影表
-CREATE TABLE movies (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    title       VARCHAR(200) NOT NULL,
-    description TEXT,
-    duration    INT COMMENT '时长(分钟)',
-    release_date DATE,
-    poster      VARCHAR(255),
-    rating      DECIMAL(2,1),
-    status      ENUM('upcoming', 'showing', 'ended'),
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 影院表
-CREATE TABLE cinemas (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name        VARCHAR(200) NOT NULL,
-    address     VARCHAR(500),
-    latitude    DECIMAL(10,7),
-    longitude   DECIMAL(10,7),
-    phone       VARCHAR(20)
-);
-
--- 影厅表
-CREATE TABLE halls (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    cinema_id   BIGINT NOT NULL,
-    name        VARCHAR(50),
-    seat_rows   INT,
-    seat_cols   INT,
-    hall_type   ENUM('normal', 'imax', '4dx'),
-    FOREIGN KEY (cinema_id) REFERENCES cinemas(id)
-);
-
--- 场次表
-CREATE TABLE showtimes (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    movie_id    BIGINT NOT NULL,
-    hall_id     BIGINT NOT NULL,
-    show_date   DATE NOT NULL,
-    show_time   TIME NOT NULL,
-    price       DECIMAL(8,2) NOT NULL,
-    status      ENUM('available', 'locked', 'sold_out'),
-    FOREIGN KEY (movie_id) REFERENCES movies(id),
-    FOREIGN KEY (hall_id) REFERENCES halls(id)
-);
-
--- 座位表
-CREATE TABLE seats (
-    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    hall_id     BIGINT NOT NULL,
-    row_num     INT NOT NULL,
-    col_num     INT NOT NULL,
-    seat_type   ENUM('normal', 'vip', 'couple'),
-    status      ENUM('available', 'locked', 'sold'),
-    FOREIGN KEY (hall_id) REFERENCES halls(id)
-);
-
--- 订单表
-CREATE TABLE orders (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_no        VARCHAR(64) UNIQUE NOT NULL,
-    user_id         BIGINT NOT NULL,
-    showtime_id     BIGINT NOT NULL,
-    seat_ids        JSON COMMENT '座位ID列表',
-    total_amount    DECIMAL(10,2) NOT NULL,
-    status          ENUM('pending', 'paid', 'cancelled', 'refunded'),
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    paid_at         DATETIME,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (showtime_id) REFERENCES showtimes(id)
-);
-
--- 支付记录表
-CREATE TABLE payments (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_id        BIGINT NOT NULL,
-    payment_method  ENUM('mock', 'alipay', 'wechat', 'card'),
-    amount          DECIMAL(10,2) NOT NULL,
-    transaction_id  VARCHAR(100),
-    status          ENUM('pending', 'success', 'failed', 'refunded'),
-    paid_at         DATETIME,
-    FOREIGN KEY (order_id) REFERENCES orders(id)
-);
-```
-
-### 4.2 核心流程详细设计
-
-#### 订票流程（状态机）
+#### 4.1.1 实体关系图
 
 ```
-[浏览电影] → [选择场次] → [选择座位] → [确认订单]
-                                              │
-                                    ┌─────────┴─────────┐
-                                    ▼                   ▼
-                              [锁定座位]           [座位已被占]
-                              (15分钟超时)         返回重新选择
-                                    │
-                                    ▼
-                              [发起支付]
-                                    │
-                        ┌───────────┼───────────┐
-                        ▼           ▼           ▼
-                    [支付成功]   [支付失败]   [支付超时]
-                        │           │           │
-                        ▼           ▼           ▼
-                  [确认订单]   [释放座位]   [释放座位]
-                  [出票完成]   [取消订单]   [取消订单]
+                              ┌─────────────┐
+                              │   CINEMAS   │
+                              │   影院表     │
+                              ├─────────────┤
+                              │ id (PK)     │
+                              │ name        │
+                              │ address     │
+                              │ phone       │
+                              │ status      │
+                              └──────┬──────┘
+                                     │
+                                     │ 1:N
+                                     ▼
+┌─────────────┐              ┌─────────────┐              ┌─────────────┐
+│   USERS     │              │   HALLS     │              │   MOVIES    │
+│   用户表     │              │   影厅表     │              │   电影表     │
+├─────────────┤              ├─────────────┤              ├─────────────┤
+│ id (PK)     │              │ id (PK)     │              │ id (PK)     │
+│ username    │              │ cinema_id   │              │ title       │
+│ password    │              │ name        │              │ duration    │
+│ phone       │              │ seat_rows   │              │ release_date│
+│ role        │              │ seat_cols   │              │ rating      │
+│ wallet_bal  │              │ hall_type   │              │ description │
+│ version     │              └──────┬──────┘              │ status      │
+└──────┬──────┘                     │                     └──────┬──────┘
+       │                            │                            │
+       │                            │ 1:N                        │ 1:N
+       │                            ▼                            ▼
+       │                     ┌─────────────┐              ┌─────────────┐
+       │                     │   SEATS     │              │  SHOWTIMES  │
+       │                     │   座位表     │              │  场次表      │
+       │                     ├─────────────┤              ├─────────────┤
+       │                     │ id (PK)     │              │ id (PK)     │
+       │                     │ hall_id     │              │ movie_id    │
+       │                     │ row_num     │              │ hall_id     │
+       │                     │ col_num     │              │ show_date   │
+       │                     │ seat_type   │              │ show_time   │
+       │                     │ status      │              │ price       │
+       │                     └──────┬──────┘              └──────┬──────┘
+       │                            │                            │
+       │ 1:N                        │ 1:N                        │ 1:N
+       ▼                            ▼                            ▼
+┌─────────────┐              ┌─────────────┐              ┌─────────────┐
+│   ORDERS    │              │ ORDER_SEATS │              │  PAYMENTS   │
+│   订单表     │              │ 订单座位关联  │              │  支付记录    │
+├─────────────┤              ├─────────────┤              ├─────────────┤
+│ id (PK)     │◀─────────────│ order_id    │              │ id (PK)     │
+│ order_no    │              │ seat_id     │              │ order_id    │
+│ user_id     │              │ price       │              │ amount      │
+│ showtime_id │              └─────────────┘              │ status      │
+│ total_amount│                                          └─────────────┘
+│ status      │
+└─────────────┘
 ```
 
-#### 座位锁定机制
+#### 4.1.2 实体关系汇总
 
-```
-1. 用户选择座位 → Redis SETNX 加锁（TTL 15分钟）
-2. 锁定成功 → 创建待支付订单
-3. 支付成功 → 更新座位状态为 sold
-4. 超时未支付 → 释放 Redis 锁，取消订单
-5. 并发冲突 → 提示用户座位已被占用
-```
+| 关系 | 类型 | 说明 |
+|------|------|------|
+| CINEMAS → HALLS | 1:N | 一个影院拥有多个影厅 |
+| HALLS → SEATS | 1:N | 一个影厅包含多个座位 |
+| MOVIES → SHOWTIMES | 1:N | 一部电影可以有多个排片场次 |
+| HALLS → SHOWTIMES | 1:N | 一个影厅可以放映多个场次 |
+| USERS → ORDERS | 1:N | 一个用户可以创建多个订单 |
+| SHOWTIMES → ORDERS | 1:N | 一个场次可以产生多个订单 |
+| ORDERS → ORDER_SEATS | 1:N | 一个订单包含多个座位 |
+| SEATS → ORDER_SEATS | 1:N | 一个座位可以出现在多个历史订单中 |
+| ORDERS → PAYMENTS | 1:N | 一个订单可以有多条支付记录 |
 
-### 4.3 接口详细设计
+### 4.2 逻辑结构设计（关系模式）
 
-| 接口 | 方法 | 请求参数 | 响应 | 说明 |
-|------|------|----------|------|------|
-| /api/movies | GET | page, size, status | 电影列表 | 分页查询 |
-| /api/movies/{id} | GET | - | 电影详情 | 含评分、演职员 |
-| /api/showtimes | GET | movieId, cinemaId, date | 场次列表 | 按影院分组 |
-| /api/seats/{showtimeId} | GET | - | 座位图 | 含锁定状态 |
-| /api/orders | POST | showtimeId, seatIds | 订单信息 | 创建订单 |
-| /api/orders/{id}/pay | POST | paymentMethod | 支付结果 | 发起支付 |
-| /api/orders/{id} | DELETE | - | 取消结果 | 取消/退票 |
+#### 4.2.1 核心表结构
 
-**产出物：** 数据库设计文档、接口文档（Swagger）、流程图、时序图
+**用户表 (users)**
 
----
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 用户唯一标识 |
+| username | VARCHAR(50) | UNIQUE, NOT NULL | 用户名 |
+| password | VARCHAR(255) | NOT NULL | 密码(BCrypt加密) |
+| phone | VARCHAR(20) | | 手机号 |
+| role | ENUM | DEFAULT 'user' | 角色: user/admin |
+| wallet_balance | DECIMAL(10,2) | DEFAULT 1000.00 | 虚拟钱包余额 |
+| version | INT | DEFAULT 0 | 乐观锁版本号 |
+| created_at | DATETIME | DEFAULT NOW() | 创建时间 |
+| updated_at | DATETIME | ON UPDATE NOW() | 更新时间 |
 
-## 第五阶段：编码实现
+**电影表 (movies)**
 
-### 5.1 技术栈选型（已确认）
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 电影唯一标识 |
+| title | VARCHAR(200) | NOT NULL | 电影名称 |
+| duration | INT | | 时长(分钟) |
+| release_date | DATE | | 上映日期 |
+| rating | DECIMAL(2,1) | | 评分 |
+| description | TEXT | | 简介 |
+| status | ENUM | | 状态: upcoming/showing/ended |
+| created_at | DATETIME | DEFAULT NOW() | 创建时间 |
+| updated_at | DATETIME | ON UPDATE NOW() | 更新时间 |
 
-| 层级 | 技术选型 | 说明 |
-|------|----------|------|
-| 前端 | Vue3 + Vite + Vant 4 | 用户端 + 管理后台 |
-| 后端框架 | Spring Boot 3 | 单体 RESTful API |
-| 数据库 | MySQL 8.0 | 主数据存储 |
-| 缓存 + 锁座 | Redis + Lua 脚本 | 原子锁座，核心亮点 |
-| 异步削峰 | Redis Stream | 订单异步处理，技术亮点 |
-| 支付 | 虚拟钱包 | 完整交易闭环 |
-| 部署 | 本地单机 | 零成本 |
+**场次表 (showtimes)**
 
-#### Spring Boot 3 连接 MySQL 配置
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 场次唯一标识 |
+| movie_id | BIGINT | FK → movies.id | 电影ID |
+| hall_id | BIGINT | FK → halls.id | 影厅ID |
+| show_date | DATE | NOT NULL | 放映日期 |
+| show_time | TIME | NOT NULL | 放映时间 |
+| price | DECIMAL(8,2) | NOT NULL | 基础票价 |
+| status | ENUM | DEFAULT 'normal' | 状态: normal/cancelled |
+| created_at | DATETIME | DEFAULT NOW() | 创建时间 |
+
+**订单表 (orders)**
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 订单唯一标识 |
+| order_no | VARCHAR(64) | UNIQUE, NOT NULL | 订单号 |
+| user_id | BIGINT | FK → users.id | 用户ID |
+| showtime_id | BIGINT | FK → showtimes.id | 场次ID |
+| total_amount | DECIMAL(10,2) | NOT NULL | 订单总金额 |
+| status | ENUM | | 状态: pending/paid/refunded/cancelled |
+| created_at | DATETIME | DEFAULT NOW() | 创建时间 |
+| updated_at | DATETIME | ON UPDATE NOW() | 更新时间 |
+
+**订单座位关联表 (order_seats)**
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 记录唯一标识 |
+| order_id | BIGINT | FK → orders.id | 订单ID |
+| seat_id | BIGINT | FK → seats.id | 座位ID |
+| price | DECIMAL(8,2) | | 成交价格(含类型上浮) |
+
+### 4.3 物理结构设计
+
+#### 4.3.1 数据库配置
 
 ```yaml
 # application.yml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/movie_ticket?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    url: jdbc:mysql://localhost:3306/movie_ticket?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
     username: root
-    password: your_password
+    password: clh123456
     driver-class-name: com.mysql.cj.jdbc.Driver
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      database: 0
   jpa:
-    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: update  # 自动同步实体到数据库
+    show-sql: false
 ```
 
-```xml
-<!-- pom.xml 核心依赖 -->
-<dependency>
-    <groupId>com.mysql</groupId>
-    <artifactId>mysql-connector-j</artifactId>
-    <scope>runtime</scope>
-</dependency>
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
-```
+#### 4.3.2 索引设计
 
-### 5.2 开发规范
-
-- 代码规范：遵循各语言官方编码规范
-- 版本管理：Git Flow 分支策略
-- 代码审查：每个 PR 至少一人 Review
-- 提交规范：Conventional Commits
-
-### 5.3 开发顺序（一个月极限通关计划）
-
-```
-Week 1（搭建）：Spring Boot 项目初始化 + MySQL 建表 + Redis 安装
-                + 用户模块 + 电影/影院/场次 CRUD + 前端页面骨架
-
-Week 2（核心）：Redis Lua 原子锁座 + 虚拟钱包 + 创建订单
-                + 前端选座页面 + 订单页面
-
-Week 3（亮点）：Redis Stream 异步下单 + 前端轮询订单状态
-                + 管理后台 + 前端防抖
-
-Week 4（交付）：JMeter 压测 1000 并发 + 截图零超卖证据
-                + Bug 修复 + 答辩 PPT 准备
-```
-
-**产出物：** 源代码、单元测试、API文档
+| 表名 | 索引字段 | 索引类型 | 说明 |
+|------|----------|----------|------|
+| users | username | UNIQUE | 登录查询 |
+| orders | order_no | UNIQUE | 订单号查询 |
+| orders | user_id | INDEX | 用户订单查询 |
+| orders | showtime_id | INDEX | 场次订单查询 |
+| showtimes | movie_id, show_date | INDEX | 电影场次查询 |
+| seats | hall_id | INDEX | 影厅座位查询 |
 
 ---
 
-## 第六阶段：测试
+## 第五章 详细设计
 
-### 6.1 测试策略
+### 5.1 核心流程设计
 
-| 测试类型 | 范围 | 工具 |
-|----------|------|------|
-| 单元测试 | 各模块核心逻辑 | JUnit / Jest |
-| 集成测试 | 模块间接口交互 | Postman / RestAssured |
-| 系统测试 | 完整业务流程 | Selenium / Cypress |
-| 性能测试 | 并发、响应时间 | JMeter / Locust |
-| 安全测试 | SQL注入、XSS、支付安全 | OWASP ZAP |
+#### 5.1.1 选座购票流程
 
-### 6.2 关键测试场景
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  浏览电影 │───▶│ 选择场次 │───▶│ 选择座位 │───▶│ 确认订单 │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+                                                      │
+                                                      ▼
+                                              ┌──────────────┐
+                                              │ Redis Lua锁座│
+                                              │ (原子操作)   │
+                                              └──────┬───────┘
+                                                     │
+                                    ┌────────────────┴────────────────┐
+                                    ▼                                 ▼
+                            ┌──────────────┐                 ┌──────────────┐
+                            │   锁座成功   │                 │   锁座失败   │
+                            └──────┬───────┘                 │  (座位已被占)│
+                                   │                         └──────────────┘
+                                   ▼
+                            ┌──────────────┐
+                            │ Redis Stream │
+                            │ 异步处理订单 │
+                            └──────┬───────┘
+                                   │
+                                   ▼
+                            ┌──────────────┐
+                            │ 扣减钱包余额 │
+                            │ (乐观锁)     │
+                            └──────┬───────┘
+                                   │
+                                   ▼
+                            ┌──────────────┐
+                            │ 生成订单记录 │
+                            │ 更新座位状态 │
+                            └──────┬───────┘
+                                   │
+                                   ▼
+                            ┌──────────────┐
+                            │ 前端轮询状态 │
+                            │ 显示支付结果 │
+                            └──────────────┘
+```
 
-- 并发选座（同一座位多人同时选择）
-- 支付超时与回滚
-- 库存一致性（座位不超卖）
-- 高并发起订（热门电影开售瞬间）
+#### 5.1.2 座位锁定机制（Redis Lua脚本）
 
-**产出物：** 测试计划、测试用例、测试报告、缺陷报告
+```lua
+-- Redis Lua 脚本：原子锁座
+-- KEYS[1]: 座位锁 key (seat:lock:{showtimeId}:{seatId})
+-- KEYS[2]: 用户锁 key (user:lock:{userId})
+-- ARGV[1]: 用户ID
+-- ARGV[2]: 过期时间(秒)
+
+-- 检查座位是否已被锁定
+local seatLock = redis.call('GET', KEYS[1])
+if seatLock then
+    -- 座位已被锁定，返回冲突
+    return -1
+end
+
+-- 检查用户是否已有未完成的锁
+local userLock = redis.call('GET', KEYS[2])
+if userLock then
+    -- 用户已有锁，返回冲突
+    return -2
+end
+
+-- 执行锁定
+redis.call('SETEX', KEYS[1], ARGV[2], ARGV[1])
+redis.call('SETEX', KEYS[2], ARGV[2], KEYS[1])
+
+return 1  -- 锁定成功
+```
+
+#### 5.1.3 订单异步处理（Redis Stream）
+
+```
+生产者 (OrderStreamProducer)          消费者 (OrderStreamConsumer)
+        │                                       │
+        │  XADD order:stream *                  │
+        │  {orderData}                          │
+        │──────────────────────────────────────▶│
+        │                                       │
+        │                                       │  处理订单:
+        │                                       │  1. 校验lockToken
+        │                                       │  2. 扣减余额(乐观锁)
+        │                                       │  3. 创建订单记录
+        │                                       │  4. 更新座位状态
+        │                                       │  5. 释放Redis锁
+        │                                       │
+        │◀──────────────────────────────────────│
+        │  订单状态更新                          │
+```
+
+### 5.2 关键算法设计
+
+#### 5.2.1 钱包余额乐观锁
+
+```java
+@Transactional
+public void deductBalance(Long userId, BigDecimal amount) {
+    // 1. 查询当前版本号
+    User user = userRepository.findById(userId).orElseThrow();
+    int currentVersion = user.getVersion();
+    
+    // 2. 带版本号更新
+    int affected = userRepository.deductBalance(
+        userId, amount, currentVersion
+    );
+    
+    // 3. 判断更新结果
+    if (affected == 0) {
+        throw new BusinessException("余额扣减失败，请重试");
+    }
+}
+
+// Repository 方法
+@Modifying
+@Query("UPDATE User u SET u.walletBalance = u.walletBalance - :amount, " +
+       "u.version = u.version + 1 " +
+       "WHERE u.id = :userId AND u.version = :version AND u.walletBalance >= :amount")
+int deductBalance(@Param("userId") Long userId, 
+                  @Param("amount") BigDecimal amount,
+                  @Param("version") int version);
+```
+
+#### 5.2.2 订单号生成算法
+
+```java
+public class OrderNoGenerator {
+    private static final AtomicLong SEQUENCE = new AtomicLong(0);
+    
+    public static String generate() {
+        String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        long seq = SEQUENCE.incrementAndGet() % 100000;
+        return String.format("ORD%s%05d", date, seq);
+    }
+}
+```
+
+### 5.3 数据流图
+
+#### 5.3.1 顶层数据流图（Context Diagram）
+
+```
+                          ┌─────────────────────┐
+                          │    电影票预订系统     │
+     ┌──────────┐         │                      │         ┌──────────┐
+     │          │────────▶│                      │────────▶│          │
+     │  普通用户 │  注册信息│                      │操作反馈  │  管理员   │
+     │          │  登录请求│                      │         │          │
+     │          │  订票申请│                      │◀────────│          │
+     │          │◀────────│                      │管理指令  │          │
+     └──────────┘ 认证结果 │                      │         └──────────┘
+                  电影列表 │                      │
+                  座位图   │                      │
+                  订单结果 │                      │
+                          └─────────────────────┘
+```
+
+#### 5.3.2 订单处理数据流图
+
+```
+用户 ──▶ [获取座位图] ──▶ [锁定座位] ──▶ [提交订单] ──▶ [异步处理] ──▶ [查询状态]
+              │               │              │              │              │
+              ▼               ▼              ▼              ▼              ▼
+         座位数据         临时锁座        待处理队列      订单数据       订单状态
+         (MySQL)         (Redis)        (Redis Stream)   (MySQL)       (MySQL)
+```
 
 ---
 
-## 第七阶段：部署与维护
+## 第六章 编码实现
 
-### 7.1 部署架构
+### 6.1 项目结构
 
 ```
-                    ┌──────────┐
-                    │   CDN    │
-                    └────┬─────┘
-                         │
-                    ┌────▼─────┐
-                    │   Nginx  │  负载均衡 + 静态资源
-                    └────┬─────┘
-                         │
-            ┌────────────┼────────────┐
-            ▼            ▼            ▼
-      ┌──────────┐ ┌──────────┐ ┌──────────┐
-      │ App-1   │ │ App-2   │ │ App-3   │
-      └────┬─────┘ └────┬─────┘ └────┬─────┘
-           │            │            │
-      ┌────▼────────────▼────────────▼─────┐
-      │           MySQL 8.0                │
-      │           Redis                    │
-      └────────────────────────────────────┘
+backend/
+├── src/main/java/com/moviebooking/
+│   ├── MovieBookingApplication.java    # 启动类
+│   ├── controller/                     # 控制器层 (9个)
+│   │   ├── UserController.java
+│   │   ├── MovieController.java
+│   │   ├── CinemaController.java
+│   │   ├── ShowtimeController.java
+│   │   ├── OrderController.java
+│   │   ├── AdminController.java
+│   │   ├── UploadController.java
+│   │   ├── ReviewController.java
+│   │   └── NotificationController.java
+│   ├── service/                        # 服务层 (9个)
+│   │   ├── UserService.java
+│   │   ├── MovieService.java
+│   │   ├── CinemaService.java
+│   │   ├── ShowtimeService.java
+│   │   ├── OrderService.java
+│   │   ├── AdminService.java
+│   │   ├── UploadService.java
+│   │   ├── ReviewService.java
+│   │   └── NotificationService.java
+│   ├── repository/                     # 数据访问层 (12个)
+│   │   ├── UserRepository.java
+│   │   ├── MovieRepository.java
+│   │   ├── MovieImageRepository.java
+│   │   ├── CinemaRepository.java
+│   │   ├── HallRepository.java
+│   │   ├── ShowtimeRepository.java
+│   │   ├── SeatRepository.java
+│   │   ├── OrderRepository.java
+│   │   ├── OrderSeatRepository.java
+│   │   ├── PaymentRepository.java
+│   │   ├── ReviewRepository.java
+│   │   └── NotificationRepository.java
+│   ├── entity/                         # 实体类 (11个 + 13个枚举)
+│   │   ├── User.java
+│   │   ├── Movie.java
+│   │   ├── MovieImage.java
+│   │   ├── Cinema.java
+│   │   ├── Hall.java
+│   │   ├── Showtime.java
+│   │   ├── Seat.java
+│   │   ├── Order.java
+│   │   ├── OrderSeat.java
+│   │   ├── Payment.java
+│   │   ├── Review.java
+│   │   ├── Notification.java
+│   │   └── enums/                      # 枚举类
+│   ├── dto/                            # 数据传输对象 (11个)
+│   ├── config/                         # 配置类
+│   │   ├── JwtInterceptor.java
+│   │   ├── WebConfig.java
+│   │   └── RedisConfig.java
+│   ├── redis/                          # Redis相关
+│   │   ├── SeatLockService.java
+│   │   ├── OrderStreamProducer.java
+│   │   └── OrderStreamConsumer.java
+│   ├── common/                         # 通用类
+│   │   ├── ApiResult.java
+│   │   ├── PageResult.java
+│   │   ├── BusinessException.java
+│   │   └── GlobalExceptionHandler.java
+│   └── util/                           # 工具类
+│       ├── JwtUtil.java
+│       └── OrderNoGenerator.java
+└── src/main/resources/
+    ├── application.yml                 # 配置文件
+    ├── data.sql                        # 初始数据
+    └── db/init.sql                     # 数据库初始化
 ```
 
-### 7.2 运维监控
+### 6.2 核心代码实现
 
-- 应用监控：Prometheus + Grafana
-- 日志管理：ELK Stack
-- 告警机制：异常自动通知
-- 备份策略：数据库每日全量 + 实时增量备份
+#### 6.2.1 座位锁定服务
 
-**产出物：** 部署文档、运维手册、监控大盘
+```java
+@Service
+public class SeatLockService {
+    
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+    
+    // Lua脚本：原子锁座
+    private static final String LOCK_SEAT_LUA = 
+        "local seatLock = redis.call('GET', KEYS[1]) " +
+        "if seatLock then return -1 end " +
+        "local userLock = redis.call('GET', KEYS[2]) " +
+        "if userLock then return -2 end " +
+        "redis.call('SETEX', KEYS[1], ARGV[2], ARGV[1]) " +
+        "redis.call('SETEX', KEYS[2], ARGV[2], KEYS[1]) " +
+        "return 1";
+    
+    public boolean lockSeats(Long showtimeId, List<Long> seatIds, Long userId) {
+        // 批量锁定座位
+        for (Long seatId : seatIds) {
+            String seatKey = "seat:lock:" + showtimeId + ":" + seatId;
+            String userKey = "user:lock:" + userId;
+            
+            Long result = redisTemplate.execute(
+                new DefaultRedisScript<>(LOCK_SEAT_LUA, Long.class),
+                List.of(seatKey, userKey),
+                userId.toString(),
+                "900"  // 15分钟过期
+            );
+            
+            if (result == null || result < 0) {
+                return false;  // 锁定失败
+            }
+        }
+        return true;
+    }
+}
+```
+
+#### 6.2.2 订单服务
+
+```java
+@Service
+public class OrderService {
+    
+    @Autowired
+    private SeatLockService seatLockService;
+    
+    @Autowired
+    private OrderStreamProducer streamProducer;
+    
+    public String createOrder(CreateOrderRequest request, Long userId) {
+        // 1. 校验座位是否已锁定
+        // 2. 生成订单号
+        String orderNo = OrderNoGenerator.generate();
+        
+        // 3. 发送到Redis Stream异步处理
+        streamProducer.sendOrder(orderNo, userId, request);
+        
+        return orderNo;
+    }
+}
+```
+
+### 6.3 配置说明
+
+| 配置项 | 文件 | 值 | 说明 |
+|--------|------|-----|------|
+| 数据库连接 | application.yml | movie_ticket, root/clh123456 | MySQL配置 |
+| Redis连接 | application.yml | localhost:6379, password:clh123456 | Redis配置 |
+| JWT密钥 | application.yml | MovieTicketBookingSystemSecret... | JWT签名密钥 |
+| JWT过期 | application.yml | 604800000 (7天) | Token有效期 |
+| 座位锁TTL | application.yml | 900秒 (15分钟) | 锁座超时时间 |
+| 文件上传 | application.yml | 10MB | 最大上传大小 |
 
 ---
 
-## 第八阶段：微信小程序扩展规划（第二个月）
+## 第七章 测试
 
-### 8.1 迁移方案
+### 7.1 测试策略
 
-采用 uni-app 将 Vue3 H5 版本迁移至微信小程序，后端 API 完全复用。
+| 测试类型 | 范围 | 工具 | 状态 |
+|----------|------|------|------|
+| 单元测试 | Service层业务逻辑 | JUnit 5 | 待完成 |
+| 集成测试 | API接口测试 | Postman | 已完成 |
+| 功能测试 | 完整业务流程 | 手动测试 | 已完成 |
+| 性能测试 | 并发、响应时间 | JMeter | 待完成 |
 
-| 对比项 | Vue3 H5 | uni-app 微信小程序 |
-|--------|---------|-------------------|
-| 模板语法 | Vue3 SFC | 几乎相同 |
-| 路由 | Vue Router | 页面文件即路由 |
-| 网络请求 | axios | uni.request（封装后用法一致） |
-| UI组件库 | Vant 4 | uni-ui / uview-plus |
-| 状态管理 | Pinia | 直接可用 |
+### 7.2 测试用例
 
-### 8.2 迁移步骤
+#### 7.2.1 用户注册测试
 
-1. 创建 uni-app Vue3 项目
-2. 复用业务逻辑层（API封装、状态管理、工具函数）
-3. 页面模板微调（`div→view`、`span→text`、`img→image`）
-4. 替换 UI 组件库为小程序兼容版本
-5. 处理小程序特有限制（无 DOM 操作、包体积限制 2MB）
+| 测试项 | 输入 | 预期结果 | 实际结果 |
+|--------|------|----------|----------|
+| 正常注册 | username=test, password=123456 | 注册成功，返回用户信息 | ✓ |
+| 重复用户名 | 已存在的用户名 | 返回400，用户名已存在 | ✓ |
+| 缺少必填项 | 空用户名 | 返回400，参数错误 | ✓ |
 
-### 8.3 微信小程序特有对接
+#### 7.2.2 座位锁定测试
 
-| 功能 | 说明 |
-|------|------|
-| **登录** | wx.login 获取 code → 后端换 openid |
-| **支付** | 必须走微信支付，需申请商户号 |
-| **分包** | 主包限制 2MB，按功能分包加载 |
-| **域名白名单** | 所有请求域名必须在小程序后台配置 |
-| **审核** | 提交微信审核，通常 1-3 个工作日 |
+| 测试项 | 操作 | 预期结果 | 实际结果 |
+|--------|------|----------|----------|
+| 正常锁座 | 选择可用座位 | 返回200，锁定成功 | ✓ |
+| 重复锁座 | 其他用户锁定同一座位 | 返回409，座位已被占用 | ✓ |
+| 超时释放 | 等待15分钟 | 座位自动释放 | ✓ |
 
-### 8.4 时间规划
+#### 7.2.3 并发测试场景
 
-```
-当前（Month 1）：Vue3 H5 版本开发上线
-    ↓
-Month 2：uni-app 迁移前端，后端 API 不变
-    ↓
-Month 3：提交微信审核，正式上线小程序
-```
+| 场景 | 并发数 | 预期结果 | 验证方法 |
+|------|--------|----------|----------|
+| 同一座位并发抢票 | 100 | 只有1人成功，99人失败 | 检查订单数量 |
+| 同一用户并发支付 | 50 | 只扣一次款 | 检查余额变化 |
+| 高并发起订 | 1000 | 系统正常响应 | JMeter报告 |
 
----
+### 7.3 Redis测试指南
 
-## 各阶段产出物汇总
+> 详见 `docs/redis-test-guide.md`
 
-| 阶段 | 主要产出物 |
-|------|------------|
-| 问题定义 | 可行性分析报告 |
-| 需求分析 | 需求规格说明书（SRS）、用例图 |
-| 概要设计 | 架构设计文档、接口文档、ER图 |
-| 详细设计 | 数据库设计、流程图、时序图、API详细文档 |
-| 编码实现 | 源代码、单元测试、API文档 |
-| 测试 | 测试计划、测试用例、测试报告 |
-| 部署维护 | 部署文档、运维手册、监控大盘 |
+测试步骤：
+1. 用户登录获取Token
+2. 获取场次座位信息
+3. 锁定座位（验证Redis锁）
+4. 重复锁定测试（验证冲突检测）
+5. 创建订单（验证Redis Stream）
+6. 轮询订单状态
+7. 查看订单详情
 
 ---
 
-## 待讨论事项
+## 第八章 部署与维护
 
-### 已全部确认
+### 8.1 环境要求
 
-核心决策已确认完毕，详见文档顶部"已确认决策"表。
+| 组件 | 版本要求 | 说明 |
+|------|----------|------|
+| JDK | 17+ | Spring Boot 3.x 要求 |
+| Maven | 3.8+ | 项目构建 |
+| MySQL | 8.0+ | 数据库 |
+| Redis | 6.0+ | 缓存中间件 |
+| Node.js | 16+ | 前端构建 |
 
-### API 接口文档
+### 8.2 部署步骤
 
-完整的前后端接口规范见：`docs/api-spec.md`（27 个接口，前后端可并行开发）
+#### 8.2.1 后端部署
+
+```bash
+# 1. 初始化数据库
+mysql -u root -p < backend/src/main/resources/db/init.sql
+
+# 2. 启动Redis
+redis-server
+
+# 3. 启动后端
+cd backend
+mvn spring-boot:run
+```
+
+#### 8.2.2 前端部署
+
+```bash
+# 1. 安装依赖
+cd frontend
+npm install
+
+# 2. 启动开发服务器
+npm run dev
+
+# 3. 构建生产版本
+npm run build
+```
+
+### 8.3 监控与日志
+
+| 监控项 | 工具 | 说明 |
+|--------|------|------|
+| 应用日志 | Logback | 控制台 + 文件输出 |
+| Redis监控 | redis-cli monitor | 实时命令监控 |
+| 数据库监控 | MySQL Workbench | 查询性能分析 |
+
+---
+
+## 第九章 项目总结
+
+### 9.1 技术亮点
+
+1. **Redis Lua原子锁座**：通过Lua脚本实现座位锁定的原子性，避免并发冲突
+2. **Redis Stream异步处理**：订单处理采用消息队列模式，实现流量削峰
+3. **乐观锁机制**：钱包余额操作采用版本号控制，防止并发超扣
+4. **前后端分离**：RESTful API设计，支持前后端并行开发
+
+### 9.2 项目成果
+
+| 指标 | 目标 | 实际 |
+|------|------|------|
+| 后端代码量 | - | 78个Java文件 |
+| API接口数 | - | 27个RESTful接口 |
+| 数据库表 | - | 12张业务表 |
+| 并发支持 | 1000+ | 待压测验证 |
+| 座位超卖 | 0 | 通过Lua脚本保证 |
+
+### 9.3 后续优化方向
+
+1. **前端开发**：完成Vue 3 + Vant 4移动端界面
+2. **性能压测**：使用JMeter进行1000并发压测
+3. **单元测试**：补充Service层单元测试
+4. **安全加固**：接口限流、参数校验增强
+5. **监控告警**：集成Prometheus + Grafana
+
+---
+
+## 附录
+
+### A. 团队分工建议
+
+| 角色 | 职责 | 工作内容 |
+|------|------|----------|
+| 后端开发 | API实现 | Controller、Service、Repository层开发 |
+| 前端开发 | 页面实现 | Vue组件、页面路由、API对接 |
+| 测试 | 质量保证 | 测试用例编写、功能测试、性能测试 |
+| 文档 | 项目文档 | 需求文档、设计文档、用户手册 |
+
+### B. 开发进度表
+
+| 阶段 | 时间 | 任务 | 状态 |
+|------|------|------|------|
+| 需求分析 | 第1周 | 需求调研、用例分析 | ✅ 已完成 |
+| 系统设计 | 第1周 | 架构设计、数据库设计 | ✅ 已完成 |
+| 后端开发 | 第2-3周 | API实现、业务逻辑 | ✅ 已完成 |
+| 前端开发 | 第3-4周 | 页面开发、接口对接 |   进行中 |
+| 测试 | 第4周 | 功能测试、性能测试 |   待开始 |
+| 部署 | 第5周 | 系统部署、文档完善 |   待开始 |
+
+### C. 参考文献
+
+1. Spring Boot官方文档: https://spring.io/projects/spring-boot
+2. Redis官方文档: https://redis.io/documentation
+3. Vue.js官方文档: https://vuejs.org/
+4. MySQL 8.0参考手册: https://dev.mysql.com/doc/refman/8.0/en/
 
 ---
 
 *文档创建日期：2026-05-26*
-*最后更新：2026-05-28*
-*状态：设计完成 — 进入开发阶段*
+*最后更新：2026-06-23*
+*版本：v2.0*
+*状态：后端开发完成，前端开发进行中*
