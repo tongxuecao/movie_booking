@@ -1,28 +1,40 @@
 # 电影票预订系统后端实现计划
 
-> **Goal:** 实现完整的 Spring Boot 3 后端，包含 13 张表、30+ API 接口、Redis Lua 原子锁座、Redis Stream 异步下单、虚拟钱包乐观锁。
+> **Goal:** 实现完整的 Spring Boot 3 后端，包含 12 张表、27 个 API 接口、Redis Lua 原子锁座、Redis Stream 异步下单、虚拟钱包乐观锁。
 
 **Architecture:** Spring Boot 3 单体架构，分层：Controller → Service → Repository → Entity。Redis 负责座位锁和订单异步处理（Stream）。JWT 认证 + BCrypt 密码加密。
 
-**Tech Stack:** Spring Boot 3.2, Spring Data JPA, MySQL 8.0, Redis, JWT (jjwt 0.12.5), BCrypt (spring-security-crypto)
+**Tech Stack:** Spring Boot 3.2.5, Spring Data JPA, MySQL 8.0, Redis, JWT (jjwt 0.12.5), BCrypt (spring-security-crypto)
 
 ---
 
-## 当前状态：全部完成（2026-06-15）
+## 当前状态：后端开发完成（2026-06-23）
 
 **编译状态：** `mvn clean compile` BUILD SUCCESS，共 78 个 Java 源文件。
 
-**待完成：**
-- ~~启动 MySQL 并创建数据库 `movie_ticket`~~ ✅ 已创建 `backend/src/main/resources/db/init.sql`
-- 启动 Redis（localhost:6379）
-- 修改 `application.yml` 中的数据库密码
-- 实际运行测试各接口
-- 前端联调
+**运行环境：**
+- JDK 24（Lombok 不兼容，已移除改为手写 getter/setter/构造器）
+- MySQL 8.0（数据库：movie_ticket，用户名：root，密码：clh123456）
+- Redis（localhost:6379，密码：clh123456）
 
-**已知问题：**
-- 运行环境为 JDK 24，Lombok 不兼容，已移除 Lombok 改为手写 getter/setter/构造器
-- `OrderStreamConsumer` 有一处 unchecked 警告（Stream API 泛型），不影响运行
-- `data.sql` 使用 `ON DUPLICATE KEY UPDATE` 防止重复插入，但需要表中有唯一键才能生效
+**已完成：**
+- ✅ 后端 78 个 Java 文件全部完成
+- ✅ 9 个 Controller 覆盖全部业务接口
+- ✅ 12 个 JPA Repository 实现数据访问
+- ✅ 9 个 Service 实现业务逻辑
+- ✅ Redis Lua 原子锁座实现
+- ✅ Redis Stream 异步订单处理
+- ✅ 虚拟钱包乐观锁扣款
+- ✅ JWT 认证拦截器
+- ✅ 数据库初始化脚本（`db/init.sql`）
+- ✅ 初始数据脚本（`data.sql`）
+- ✅ Redis 测试指南（`docs/redis-test-guide.md`）
+
+**待完成：**
+-   前端开发（Vue 3 + Vant 4）
+-   前后端联调
+-   JMeter 性能压测（1000 并发）
+-   单元测试编写
 
 ---
 
@@ -58,7 +70,7 @@ backend/
 │   │   ├── Payment.java                      # 支付记录表
 │   │   ├── Review.java                       # 评价表
 │   │   ├── Notification.java                 # 通知表
-│   │   └── enums/                            # 12 个枚举类
+│   │   └── enums/                            # 13 个枚举类
 │   │       ├── UserRole.java                 # user, admin
 │   │       ├── MovieStatus.java              # upcoming, showing, ended
 │   │       ├── CinemaStatus.java             # open, suspended, preparing, closed
@@ -70,7 +82,8 @@ backend/
 │   │       ├── PaymentStatus.java            # success, failed, refunded
 │   │       ├── ImageType.java                # poster, still, banner
 │   │       ├── NotificationType.java         # order, system
-│   │       └── NotificationStatus.java       # unread, read
+│   │       ├── NotificationStatus.java       # unread, read
+│   │       └── ReviewRating.java             # 1-5 星评分
 │   ├── repository/                           # 12 个 Spring Data JPA Repository
 │   │   ├── UserRepository.java               # + deductBalance/addBalance（乐观锁扣款）
 │   │   ├── MovieRepository.java              # + findByStatusAndKeyword
@@ -100,7 +113,7 @@ backend/
 │   │   ├── UploadService.java                # 图片上传
 │   │   ├── ReviewService.java                # 评价提交/列表
 │   │   └── NotificationService.java          # 通知列表/标记已读
-│   ├── controller/                           # 9 个 Controller（30+ 接口）
+│   ├── controller/                           # 9 个 Controller（27 个接口）
 │   │   ├── UserController.java               # /user/*
 │   │   ├── MovieController.java              # /movie/*
 │   │   ├── CinemaController.java             # /cinema/*
@@ -118,17 +131,15 @@ backend/
 ├── src/main/resources/
 │   ├── application.yml                       # 数据库/Redis/JWT/上传配置
 │   ├── data.sql                              # 初始化数据（admin/测试用户/示例电影/影院/影厅）
-│   ├── db/
-│   │   └── init.sql                          # 数据库完整初始化脚本（建库+建表+测试数据）
-│   └── lua/
-│       └── lock_seats.lua                    # Lua 脚本（参考，实际用 Java 原生操作实现）
+│   └── db/
+│       └── init.sql                          # 数据库完整初始化脚本（建库+建表+测试数据）
 ```
 
 ---
 
-## 已实现的 API 接口
+## 已实现的 API 接口（27 个）
 
-### 用户模块 `/api/user`
+### 用户模块 `/api/user`（4 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /user/register | 注册（自动创建钱包 1000 元） | 否 |
@@ -136,20 +147,20 @@ backend/
 | GET | /user/profile | 获取个人信息 | 是 |
 | PUT | /user/profile | 修改手机/头像 | 是 |
 
-### 电影模块 `/api/movie`
+### 电影模块 `/api/movie`（2 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | GET | /movie/list | 电影列表（支持 status/keyword/分页） | 否 |
 | GET | /movie/{id} | 电影详情 | 否 |
 
-### 影院/场次模块
+### 影院/场次模块（3 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | GET | /cinema/list | 影院列表（分页） | 否 |
 | GET | /showtime/list | 场次列表（movieId/cinemaId/date） | 否 |
 | GET | /showtime/{id}/seats | 座位图（含锁定/已售状态） | 否 |
 
-### 订单模块 `/api/order`
+### 订单模块 `/api/order`（6 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /order/lock | 锁定座位（Redis 原子锁座） | 是 |
@@ -159,7 +170,7 @@ backend/
 | GET | /order/list | 订单列表（支持 status/分页） | 是 |
 | POST | /order/cancel/{orderNo} | 退票（退款到钱包） | 是 |
 
-### 管理后台 `/api/admin`
+### 管理后台 `/api/admin`（9 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /admin/login | 管理员登录 | 否 |
@@ -174,18 +185,18 @@ backend/
 | GET | /admin/order/{orderNo} | 订单详情 | admin |
 | GET | /admin/statistics | 数据统计（今日订单/收入/7天趋势/热门电影） | admin |
 
-### 文件上传 `/api/upload`
+### 文件上传 `/api/upload`（1 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /upload/image | 上传图片（jpg/png/gif/webp，10MB） | 是 |
 
-### 评价 `/api/review`
+### 评价 `/api/review`（2 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /review | 提交评价（1-5 分） | 是 |
 | GET | /review/list | 评价列表（movieId/分页） | 否 |
 
-### 通知 `/api/notification`
+### 通知 `/api/notification`（2 个接口）
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | GET | /notification/list | 通知列表 | 是 |
@@ -207,8 +218,16 @@ backend/
 - 失败订单标记为 `cancelled`
 
 ### 3. 虚拟钱包乐观锁
-- UserRepository.deductBalance(): `UPDATE users SET wallet_balance = wallet_balance - ?, version = version + 1 WHERE id = ? AND version = ? AND wallet_balance >= ?`
-- UserRepository.addBalance(): 退款时使用
+```java
+// UserRepository.deductBalance()
+@Modifying
+@Query("UPDATE User u SET u.walletBalance = u.walletBalance - :amount, " +
+       "u.version = u.version + 1 " +
+       "WHERE u.id = :userId AND u.version = :version AND u.walletBalance >= :amount")
+int deductBalance(@Param("userId") Long userId, 
+                  @Param("amount") BigDecimal amount,
+                  @Param("version") int version);
+```
 
 ### 4. 座位定价
 - 普通座：基础票价
@@ -222,22 +241,79 @@ backend/
 
 ---
 
+## 配置说明
+
+### application.yml 关键配置
+
+```yaml
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/movie_ticket?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    username: root
+    password: clh123456
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: clh123456
+
+app:
+  jwt:
+    secret: MovieTicketBookingSystemSecretKey2026MustBeLongEnoughForHS256Algorithm
+    expiration: 604800000  # 7天
+  seat-lock:
+    ttl-seconds: 900  # 15分钟
+```
+
+---
+
 ## 启动步骤
 
 ```bash
 # 1. 初始化数据库（包含建表+测试数据）
 mysql -u root -p < backend/src/main/resources/db/init.sql
+# 密码：clh123456
 
-# 2. 修改 application.yml 中的数据库密码（默认 root/root）
+# 2. 确保 Redis 运行在 localhost:6379
+redis-server
 
-# 3. 确保 Redis 运行在 localhost:6379
-
-# 4. 启动
+# 3. 启动后端
 cd backend
 mvn spring-boot:run
 
-# 5. 访问 http://localhost:8080/api
+# 4. 访问 http://localhost:8080/api
 ```
+
+---
+
+## 测试相关
+
+### Redis 测试指南
+详见 `docs/redis-test-guide.md`，包含：
+1. 用户登录获取 Token
+2. 获取场次座位信息
+3. 锁定座位（验证 Redis 锁）
+4. 重复锁定测试（验证冲突检测）
+5. 创建订单（验证 Redis Stream）
+6. 轮询订单状态
+7. 查看订单详情
+
+### 验证清单
+
+| 测试项 | 操作 | 预期结果 | 验证命令 |
+|--------|------|----------|----------|
+| Redis 连接 | `redis-cli ping` | 返回 PONG | `redis-cli -a clh123456 ping` |
+| 用户登录 | POST /user/login | 返回 token | - |
+| 锁定座位 | POST /order/lock | 返回成功 | `keys seat:lock:*` |
+| 重复锁定 | POST /order/lock (另一用户) | 返回 409 | - |
+| 创建订单 | POST /order/create | 返回 orderNo | `keys *stream*` |
+| 订单入队 | - | Stream 有消息 | `XRANGE order:stream - +` |
+| 轮询状态 | GET /order/status/{orderNo} | 状态变为 paid | - |
 
 ---
 
@@ -251,10 +327,29 @@ mvn spring-boot:run
 | 订单状态 | pending → paid → refunded/cancelled | 与 ER 图一致 |
 | 密码加密 | BCrypt | Spring Security 自带，业界标准 |
 | TEMP_SEAT_LOCKS 表 | 不建 MySQL 表 | 物理实现为 Redis，仅逻辑存在 |
+| 数据库密码 | clh123456 | 本地开发环境 |
+
+---
+
+## 后续工作
+
+### 前端开发（待开始）
+- 技术栈：Vue 3 + Vite + Vant 4
+- 页面：电影列表、电影详情、场次选择、座位图、订单管理
+- 对接：27 个后端 API 接口
+
+### 性能测试（待开始）
+- 工具：JMeter
+- 目标：1000 并发用户
+- 验证：座位零超卖、响应时间 < 50ms
+
+### 单元测试（待开始）
+- 框架：JUnit 5 + Mockito
+- 范围：Service 层核心业务逻辑
 
 ---
 
 *计划创建日期：2026-06-15*
 *实现完成日期：2026-06-15*
-*最后更新：2026-06-15 22:30 — 数据库初始化脚本已创建*
-*状态：**已完成** — 等待 Redis 环境就绪后启动测试*
+*最后更新：2026-06-23 — 根据项目实际建设情况更新*
+*状态：**后端开发完成** — 等待前端开发和性能测试*
