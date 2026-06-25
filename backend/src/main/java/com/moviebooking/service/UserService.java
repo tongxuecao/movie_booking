@@ -66,6 +66,7 @@ public class UserService {
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("id", user.getId());
         userInfo.put("username", user.getUsername());
+        userInfo.put("role", user.getRole().name());
         userInfo.put("phone", maskPhone(user.getPhone()));
         userInfo.put("walletBalance", user.getWalletBalance());
         userInfo.put("avatar", user.getAvatar());
@@ -83,6 +84,7 @@ public class UserService {
         Map<String, Object> result = new HashMap<>();
         result.put("id", user.getId());
         result.put("username", user.getUsername());
+        result.put("role", user.getRole().name());
         result.put("phone", maskPhone(user.getPhone()));
         result.put("walletBalance", user.getWalletBalance());
         result.put("avatar", user.getAvatar());

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(grep -E \"\\\\.\\(js|css\\)$\")",
+      "Bash(npx vite *)",
+      "WebFetch(domain:www.maoyan.com)",
+      "WebFetch(domain:movie.douban.com)",
+      "WebFetch(domain:www.themoviedb.org)",
+      "Bash(mysql -u root -pclh123456 movie_ticket -e \"INSERT INTO seats \\(hall_id, row_num, col_num, seat_type, status, created_at, updated_at\\) SELECT 1, r, c, 'normal', 'active', NOW\\(\\), NOW\\(\\) FROM \\(SELECT 1 r UNION SELECT 2\\) r_nums CROSS JOIN \\(SELECT 1 c UNION SELECT 2\\) c_nums;\")",
+      "Bash(mysql -u root -pclh123456 movie_ticket -e \"INSERT INTO seats \\(hall_id, row_num, col_num, seat_type, status, created_at, updated_at\\) SELECT 1, r, c, CASE WHEN r = 8 AND c IN \\(5,6,7,8\\) THEN 'couple' ELSE 'normal' END, 'active', NOW\\(\\), NOW\\(\\) FROM \\(SELECT 1 r UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8\\) r_nums CROSS JOIN \\(SELECT 1 c UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12\\) c_nums;\")",
+      "Bash(mysql -u root -pclh123456 movie_ticket -e \"SHOW CREATE TABLE seats\\\\G\")",
+      "Bash(mysql -u root -pclh123456 movie_ticket)",
+      "Bash(python -c \"with open\\('D:/Github/software_engineering_project/docs/test-data.sql','rb'\\) as f: data=f.read\\(3\\); print\\('BOM' if data[:3]==b'\\\\xef\\\\xbb\\\\xbf' else 'No BOM'\\); print\\('First bytes:', data[:20].hex\\(\\)\\)\")",
+      "Bash(curl -s -X POST http://localhost:8080/api/user/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"123456\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/admin/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"123456\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/user/register -H \"Content-Type: application/json\" -d '{\"username\":\"testhash\",\"password\":\"123456\",\"phone\":\"13900009999\"}')",
+      "Bash(mysql -u root -pclh123456 movie_ticket -e \"UPDATE users SET password='\\\\$2a\\\\$10\\\\$46Rl1nNTsWP7wnPrWgOqbuRvN6UsRMBjbKsZ9qzEZklAoteaIINs2' WHERE username != 'testhash';\")",
+      "Bash(curl -s -X POST http://localhost:8080/api/user/login -H \"Content-Type: application/json\" -d '{\"username\":\"zhangsan\",\"password\":\"123456\"}')"
+    ]
+  }
+}
