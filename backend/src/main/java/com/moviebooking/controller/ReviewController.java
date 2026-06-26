@@ -22,6 +22,9 @@ public class ReviewController {
     @PostMapping
     public ApiResult<?> createReview(HttpServletRequest request, @Valid @RequestBody ReviewRequest body) {
         Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return ApiResult.error(401, "请先登录");
+        }
         return ApiResult.success(reviewService.createReview(userId, body));
     }
 
@@ -31,5 +34,11 @@ public class ReviewController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ApiResult.success(reviewService.getReviewList(movieId, page, size));
+    }
+
+    @GetMapping("/status/{movieId}")
+    public ApiResult<?> getReviewStatus(@PathVariable Long movieId, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        return ApiResult.success(reviewService.getReviewStatus(userId, movieId));
     }
 }

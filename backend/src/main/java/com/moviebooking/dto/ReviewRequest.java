@@ -8,12 +8,11 @@ public class ReviewRequest {
     @NotNull(message = "电影ID不能为空")
     private Long movieId;
 
-    @NotNull(message = "订单ID不能为空")
     private Long orderId;
 
     @NotNull(message = "评分不能为空")
     @Min(value = 1, message = "评分最低1分")
-    @Max(value = 5, message = "评分最高5分")
+    @Max(value = 10, message = "评分最高10分")
     private Integer rating;
 
     private String content;

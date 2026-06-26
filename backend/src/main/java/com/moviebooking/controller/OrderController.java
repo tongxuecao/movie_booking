@@ -3,6 +3,7 @@ package com.moviebooking.controller;
 import com.moviebooking.common.ApiResult;
 import com.moviebooking.dto.CreateOrderRequest;
 import com.moviebooking.dto.LockSeatsRequest;
+import com.moviebooking.dto.PayOrderRequest;
 import com.moviebooking.service.OrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -57,5 +58,12 @@ public class OrderController {
     public ApiResult<?> cancelOrder(HttpServletRequest request, @PathVariable String orderNo) {
         Long userId = (Long) request.getAttribute("userId");
         return ApiResult.success("退票成功，退款已到账", orderService.cancelOrder(orderNo, userId));
+    }
+
+    @PostMapping("/pay/{orderNo}")
+    public ApiResult<?> payOrder(HttpServletRequest request, @PathVariable String orderNo, @RequestBody(required = false) PayOrderRequest body) {
+        Long userId = (Long) request.getAttribute("userId");
+        String password = (body != null) ? body.getPassword() : null;
+        return ApiResult.success("支付成功", orderService.payOrder(orderNo, userId, password));
     }
 }

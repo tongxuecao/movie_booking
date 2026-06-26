@@ -65,13 +65,15 @@ async function handleConfirm() {
   try {
     const seatIds = selectedList.value.map(s => s.id)
     const lockData = await orderStore.lockSeats(showtimeId, seatIds)
-    // 使用 lock 返回的真实价格
     const lockSeats = lockData.seats || []
     const lockTotal = lockData.totalAmount || totalAmount.value
+    // 锁座成功后立即创建订单
+    const orderResult = await orderStore.createOrder(showtimeId, seatIds, lockData.lockToken)
     orderStore.setPaymentContext({
       showtimeId,
       seatIds,
       lockToken: lockData.lockToken,
+      orderNo: orderResult.orderNo,
       movieTitle: seatData.value?.movieTitle || '',
       hallName: seatData.value?.hallName || '',
       showDate: seatData.value?.showDate || '',

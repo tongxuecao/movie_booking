@@ -20,12 +20,20 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :start AND o.status = 'paid'")
-    long countPaidOrdersSince(@Param("start") LocalDateTime start);
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :start AND o.status = :status")
+    long countPaidOrdersSince(@Param("start") LocalDateTime start, @Param("status") OrderStatus status);
 
-    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.createdAt >= :start AND o.status = 'paid'")
-    java.math.BigDecimal sumRevenueSince(@Param("start") LocalDateTime start);
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.createdAt >= :start AND o.status = :status")
+    java.math.BigDecimal sumRevenueSince(@Param("start") LocalDateTime start, @Param("status") OrderStatus status);
 
-    @Query("SELECT o.showtimeId, COUNT(o), SUM(o.totalAmount) FROM Order o WHERE o.status = 'paid' GROUP BY o.showtimeId ORDER BY COUNT(o) DESC")
-    List<Object[]> findTopShowtimes(Pageable pageable);
+    @Query("SELECT o.showtimeId, COUNT(o), SUM(o.totalAmount) FROM Order o WHERE o.status = :status GROUP BY o.showtimeId ORDER BY COUNT(o) DESC")
+    List<Object[]> findTopShowtimes(@Param("status") OrderStatus status, Pageable pageable);
+
+    @Query("SELECT COUNT(o) > 0 FROM Order o WHERE o.userId = :userId AND o.status = :status AND o.showtimeId IN (SELECT s.id FROM Showtime s WHERE s.movieId = :movieId)")
+    boolean existsByUserIdAndMovieIdAndPaid(@Param("userId") Long userId, @Param("movieId") Long movieId, @Param("status") OrderStatus status);
+
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM orders o JOIN showtimes s ON o.showtime_id = s.id WHERE o.user_id = :userId AND o.status = 'paid' AND s.movie_id = :movieId", nativeQuery = true)
+    int existsByUserIdAndMovieIdAndPaidNative(@Param("userId") Long userId, @Param("movieId") Long movieId);
+
+    List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime createdAt);
 }

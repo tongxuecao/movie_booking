@@ -38,7 +38,14 @@ async function request(method, path, body) {
   const res = await fetch(`${API_BASE}${path}`, opts)
   const json = await res.json()
   if (json.code !== 200) {
-    if (json.code === 401) { removeToken(); window.location.href = '/login' }
+    if (json.code === 401) {
+      removeToken()
+      // 保存当前页面路径，登录后跳转回来
+      const currentPath = window.location.pathname
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        window.location.href = '/login?redirect=' + encodeURIComponent(currentPath)
+      }
+    }
     throw new Error(json.message || `请求失败 (${json.code})`)
   }
   return resolveUrls(json.data)
@@ -76,10 +83,22 @@ export async function apiLogin(username, password) {
 export function apiGetProfile() { return get('/user/profile') }
 export function apiUpdateProfile(data) { return put('/user/profile', data) }
 export function apiChangePassword(oldPassword, newPassword) { return put('/user/password', { oldPassword, newPassword }) }
+export function apiRecharge(amount, password) { return post('/user/recharge', { amount, password }) }
 
 // ==================== 电影 ====================
 export function apiGetMovies(params) { return get('/movie/list', params) }
 export function apiGetMovie(id) { return get(`/movie/${id}`) }
+export function apiGetMostExpectedMovies(limit = 5) { return get('/movie/most-expected', { limit }) }
+export function apiToggleWish(movieId) { return post(`/movie/${movieId}/wish`) }
+export function apiGetWishStatus(movieId) { return get(`/movie/${movieId}/wish-status`) }
+
+// ==================== 票房 ====================
+export function apiGetTodayBoxOffice() { return get('/box-office/today') }
+
+// ==================== 评价 ====================
+export function apiCreateReview(data) { return post('/review', data) }
+export function apiGetReviewList(movieId, page = 1, size = 10) { return get('/review/list', { movieId, page, size }) }
+export function apiGetReviewStatus(movieId) { return get(`/review/status/${movieId}`) }
 
 // ==================== 影院 ====================
 export function apiGetCinemas(params) { return get('/cinema/list', params) }
@@ -96,6 +115,7 @@ export function apiGetOrderStatus(orderNo) { return get(`/order/status/${orderNo
 export function apiGetOrder(orderNo) { return get(`/order/${orderNo}`) }
 export function apiGetOrders(params) { return get('/order/list', params) }
 export function apiCancelOrder(orderNo) { return post(`/order/cancel/${orderNo}`) }
+export function apiPayOrder(orderNo, password) { return post(`/order/pay/${orderNo}`, password ? { password } : undefined) }
 
 // ==================== 管理员 ====================
 export async function apiAdminLogin(username, password) {

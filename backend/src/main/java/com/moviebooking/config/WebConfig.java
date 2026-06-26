@@ -14,13 +14,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
+    private final SoftAuthInterceptor softAuthInterceptor;
 
     @Value("${app.upload.path}")
     private String uploadPath;
 
     @Autowired
-    public WebConfig(JwtInterceptor jwtInterceptor) {
+    public WebConfig(JwtInterceptor jwtInterceptor, SoftAuthInterceptor softAuthInterceptor) {
         this.jwtInterceptor = jwtInterceptor;
+        this.softAuthInterceptor = softAuthInterceptor;
     }
 
     @Override
@@ -35,6 +37,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 软认证：/review/status/* 有token解析userId，无token不拦截
+        registry.addInterceptor(softAuthInterceptor)
+                .addPathPatterns("/review/status/*")
+                .order(0);
+
+        // 硬认证：其他需要登录的接口
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
@@ -42,14 +50,20 @@ public class WebConfig implements WebMvcConfigurer {
                         "/user/login",
                         "/admin/login",
                         "/movie/list",
-                        "/movie/**",
+                        "/movie/most-expected",
+                        "/movie/*/wish-status",
+                        "/box-office/today",
                         "/cinema/list",
+                        "/cinema/*",
                         "/showtime/list",
+                        "/showtime/*",
                         "/showtime/*/seats",
                         "/uploads/**",
                         "/review/list",
+                        "/review/status/*",
                         "/error"
-                );
+                )
+                .order(1);
     }
 
     @Override

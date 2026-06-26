@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMovieStore } from '../stores/movies.js'
 import BuyTicket from '../components/BuyTicket.vue'
+import WishButton from '../components/WishButton.vue'
+import RatingComponent from '../components/RatingComponent.vue'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -60,11 +62,24 @@ onMounted(async () => {
           <p>{{ movie.description }}</p>
         </div>
 
-        <button class="buy-btn" @click="buyMovie = movie">选座购票</button>
+        <div class="action-buttons">
+          <button class="buy-btn" @click="buyMovie = movie">选座购票</button>
+          <WishButton
+            :movie-id="movie.id"
+            @need-login="router.push('/login?redirect=' + encodeURIComponent(route.fullPath))"
+          />
+        </div>
+
       </div>
     </div>
 
-    <BuyTicket v-if="buyMovie" :movie="buyMovie" @close="buyMovie = null" @need-login="router.push('/login?redirect=' + route.fullPath)" />
+    <RatingComponent
+      v-if="movie.status === 'showing'"
+      :movie-id="movie.id"
+      @need-login="router.push('/login?redirect=' + encodeURIComponent(route.fullPath))"
+    />
+
+    <BuyTicket v-if="buyMovie" :movie="buyMovie" @close="buyMovie = null" @need-login="router.push('/login?redirect=' + encodeURIComponent(route.fullPath))" />
   </div>
   <div v-else-if="loading" class="loading">加载中...</div>
 </template>
@@ -91,6 +106,7 @@ onMounted(async () => {
 .synopsis-block { margin-bottom: 28px; }
 .synopsis-block h3 { font-size: 16px; margin-bottom: 10px; color: #333; }
 .synopsis-block p { font-size: 15px; line-height: 1.8; color: #555; }
+.action-buttons { display: flex; gap: 16px; align-items: center; margin-bottom: 24px; }
 .buy-btn { padding: 12px 48px; background: var(--primary); color: #fff; font-size: 16px; border-radius: 8px; transition: background 0.2s; }
 .buy-btn:hover { background: var(--primary-hover); }
 @media (max-width: 768px) { .detail-layout { flex-direction: column; } .poster-section { flex: none; max-width: 260px; } }

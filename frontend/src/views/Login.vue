@@ -21,8 +21,10 @@ async function handleLogin() {
   try {
     await auth.login(username.value, password.value)
     ElMessage.success('登录成功')
+    // 获取重定向路径，如果没有则跳转到首页
     const redirect = route.query.redirect || '/'
-    router.push(redirect)
+    // 使用replace而不是push，避免登录页留在历史记录中
+    router.replace(redirect)
   } catch (e) {
     ElMessage.error(e.message || '登录失败')
   } finally {

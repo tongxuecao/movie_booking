@@ -24,6 +24,12 @@ public class Movie {
     @Column(precision = 3, scale = 1)
     private BigDecimal rating;
 
+    @Column(name = "rating_count")
+    private Integer ratingCount = 0;
+
+    @Column(name = "wish_count")
+    private Integer wishCount = 0;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -73,6 +79,12 @@ public class Movie {
 
     public BigDecimal getRating() { return rating; }
     public void setRating(BigDecimal rating) { this.rating = rating; }
+
+    public Integer getRatingCount() { return ratingCount; }
+    public void setRatingCount(Integer ratingCount) { this.ratingCount = ratingCount; }
+
+    public Integer getWishCount() { return wishCount; }
+    public void setWishCount(Integer wishCount) { this.wishCount = wishCount; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { useOrderStore } from '../stores/orders.js'
-import { apiUpdateProfile, apiChangePassword, apiUploadImage } from '../services/api.js'
+import { apiUpdateProfile, apiChangePassword, apiUploadImage, apiRecharge } from '../services/api.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -32,6 +32,11 @@ const passwordLoading = ref(false)
 // 头像预览
 const showAvatarPreview = ref(false)
 
+// 充值
+const showRechargeDialog = ref(false)
+const rechargeForm = ref({ amount: '', password: '' })
+const rechargeLoading = ref(false)
+
 onMounted(async () => {
   try {
     await Promise.all([
@@ -43,12 +48,13 @@ onMounted(async () => {
   }
 })
 
-const statusLabels = { paid: '已支付', processing: '处理中', cancelled: '已取消', failed: '支付失败', refunded: '已退款' }
-const statusClasses = { paid: 'status-paid', processing: 'status-processing', cancelled: 'status-cancelled', failed: 'status-failed', refunded: 'status-refunded' }
+const statusLabels = { pending: '待支付', paid: '已支付', processing: '处理中', cancelled: '已取消', failed: '支付失败', refunded: '已退款' }
+const statusClasses = { pending: 'status-pending', paid: 'status-paid', processing: 'status-processing', cancelled: 'status-cancelled', failed: 'status-failed', refunded: 'status-refunded' }
 
 const tabs = [
   { key: 'all', label: '全部' },
   { key: 'paid', label: '已支付' },
+  { key: 'pending', label: '待支付' },
   { key: 'processing', label: '处理中' },
   { key: 'cancelled', label: '已取消' },
 ]
@@ -91,11 +97,75 @@ async function viewDetail(orderNo) {
   }
 }
 
+// 支付密码验证
+const showPayPasswordDialog = ref(false)
+const payPasswordForm = ref({ orderNo: '', password: '', amount: 0, movieTitle: '' })
+const payPasswordLoading = ref(false)
+
+function openPayPasswordDialog(orderNo, amount, movieTitle) {
+  payPasswordForm.value = { orderNo, password: '', amount, movieTitle }
+  showPayPasswordDialog.value = true
+}
+
+async function handlePayWithPassword() {
+  if (!payPasswordForm.value.password) {
+    ElMessage.warning('请输入支付密码')
+    return
+  }
+
+  payPasswordLoading.value = true
+  try {
+    const result = await orderStore.payOrder(payPasswordForm.value.orderNo, payPasswordForm.value.password)
+    if (result.status === 'paid') {
+      ElMessage.success('支付成功')
+      showPayPasswordDialog.value = false
+      await auth.refreshProfile()
+      await orderStore.fetchOrders()
+    } else {
+      ElMessage.error(result.message || '支付失败')
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '支付失败')
+  } finally {
+    payPasswordLoading.value = false
+  }
+}
+
 function closeDetail() { detailOrder.value = null }
 
 function handleLogout() {
   auth.logout()
   router.push('/')
+}
+
+// ==================== 充值 ====================
+function openRechargeDialog() {
+  rechargeForm.value = { amount: '', password: '' }
+  showRechargeDialog.value = true
+}
+
+async function handleRecharge() {
+  const { amount, password } = rechargeForm.value
+  if (!amount || Number(amount) <= 0) {
+    ElMessage.warning('请输入有效金额')
+    return
+  }
+  if (!password) {
+    ElMessage.warning('请输入密码')
+    return
+  }
+
+  rechargeLoading.value = true
+  try {
+    await apiRecharge(Number(amount), password)
+    await auth.refreshProfile()
+    ElMessage.success('充值成功')
+    showRechargeDialog.value = false
+  } catch (e) {
+    ElMessage.error(e.message || '充值失败')
+  } finally {
+    rechargeLoading.value = false
+  }
 }
 
 // ==================== 头像 ====================
@@ -259,7 +329,10 @@ const menuItems = [
                 <div class="order-price">&yen;{{ fmtAmount(o.totalAmount) }}</div>
                 <div class="order-status" :class="statusClasses[o.status]">{{ statusLabels[o.status] || o.status }}</div>
                 <div class="order-time">{{ fmtTime(o.createdAt) }}</div>
-                <button v-if="o.status === 'paid'" class="btn-cancel" @click.stop="handleCancel(o.orderNo)">取消订单</button>
+                <div class="order-actions">
+                  <button v-if="o.status === 'pending'" class="btn-pay-order" @click.stop="openPayPasswordDialog(o.orderNo, o.totalAmount, o.movieTitle)">继续支付</button>
+                  <button v-if="o.status === 'paid'" class="btn-cancel" @click.stop="handleCancel(o.orderNo)">取消订单</button>
+                </div>
               </div>
             </div>
           </div>
@@ -277,6 +350,7 @@ const menuItems = [
           <div class="wallet-card">
             <div class="wallet-label">账户余额</div>
             <div class="wallet-balance">&yen;{{ fmtAmount(auth.walletBalance) }}</div>
+            <button class="btn-recharge" @click="openRechargeDialog">充值</button>
             <p class="wallet-hint">注册即送 1000 元虚拟余额，购票自动扣款</p>
           </div>
         </div>
@@ -374,6 +448,65 @@ const menuItems = [
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 充值弹窗 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showRechargeDialog" class="detail-overlay" @click.self="showRechargeDialog = false">
+          <div class="detail-modal recharge-modal">
+            <button class="detail-close" @click="showRechargeDialog = false">&times;</button>
+            <h3>钱包充值</h3>
+            <div class="dialog-body">
+              <div class="input-group">
+                <label>充值金额（元）</label>
+                <input v-model="rechargeForm.amount" type="number" placeholder="请输入充值金额" min="0.01" step="0.01" />
+              </div>
+              <div class="input-group">
+                <label>登录密码</label>
+                <input v-model="rechargeForm.password" type="password" placeholder="请输入登录密码" @keyup.enter="handleRecharge" />
+              </div>
+              <p class="recharge-hint">输入密码确认充值，以账号密码代替支付密码</p>
+            </div>
+            <div class="dialog-foot">
+              <button class="btn-dialog-cancel" @click="showRechargeDialog = false">取消</button>
+              <button class="btn-dialog-confirm" :disabled="rechargeLoading" @click="handleRecharge">
+                {{ rechargeLoading ? '充值中...' : '确认充值' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 支付弹窗（模拟微信支付） -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showPayPasswordDialog" class="detail-overlay">
+          <div class="detail-modal wx-pay-modal">
+            <div class="wx-pay">
+              <div class="wx-pay-header">
+                <button class="wx-close" @click="showPayPasswordDialog = false">&times;</button>
+                <span class="wx-title">请输入支付密码</span>
+              </div>
+              <div class="wx-amount">
+                <span class="wx-currency">&yen;</span>
+                <span class="wx-price">{{ fmtAmount(payPasswordForm.amount) }}</span>
+              </div>
+              <div class="wx-info">
+                <div class="wx-info-row"><label>商品</label><span>电影票 - {{ payPasswordForm.movieTitle }}</span></div>
+                <div class="wx-info-row"><label>收款方</label><span>电影票预订系统</span></div>
+              </div>
+              <div class="wx-password">
+                <el-input v-model="payPasswordForm.password" type="password" placeholder="请输入支付密码" show-password @keyup.enter="handlePayWithPassword" />
+              </div>
+              <button class="wx-pay-btn" :disabled="payPasswordLoading" @click="handlePayWithPassword">
+                {{ payPasswordLoading ? '处理中...' : '确认支付' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -421,7 +554,9 @@ const menuItems = [
 /* 钱包 */
 .wallet-card { text-align: center; padding: 32px 0; }
 .wallet-label { font-size: 14px; color: var(--text-light); margin-bottom: 8px; }
-.wallet-balance { font-size: 42px; font-weight: 800; color: var(--primary); margin-bottom: 12px; }
+.wallet-balance { font-size: 42px; font-weight: 800; color: var(--primary); margin-bottom: 16px; }
+.btn-recharge { padding: 10px 36px; background: #ff9800; color: #fff; font-size: 15px; font-weight: 600; border-radius: 8px; transition: all 0.2s; margin-bottom: 12px; }
+.btn-recharge:hover { background: #f57c00; }
 .wallet-hint { font-size: 13px; color: var(--text-light); }
 
 /* 订单 */
@@ -438,13 +573,17 @@ const menuItems = [
 .order-right { text-align: right; flex-shrink: 0; margin-left: 16px; }
 .order-price { font-size: 18px; font-weight: 700; color: var(--primary); }
 .order-status { font-size: 12px; margin: 2px 0; }
+.status-pending { color: #ff9800; }
 .status-paid { color: #4caf50; }
 .status-processing { color: #ff9800; }
 .status-cancelled { color: #999; }
 .status-failed { color: #e53935; }
 .status-refunded { color: #2196f3; }
 .order-time { font-size: 11px; color: #ccc; }
-.btn-cancel { margin-top: 6px; padding: 4px 12px; background: none; border: 1px solid #e53935; color: #e53935; font-size: 11px; border-radius: 4px; transition: all 0.2s; }
+.order-actions { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+.btn-pay-order { padding: 4px 12px; background: #ff9800; color: #fff; font-size: 11px; border-radius: 4px; transition: all 0.2s; }
+.btn-pay-order:hover { background: #f57c00; }
+.btn-cancel { padding: 4px 12px; background: none; border: 1px solid #e53935; color: #e53935; font-size: 11px; border-radius: 4px; transition: all 0.2s; }
 .btn-cancel:hover { background: #fce4ec; }
 
 .empty-state { text-align: center; padding: 60px 0; color: var(--text-light); }
@@ -472,7 +611,7 @@ const menuItems = [
 .avatar-preview-close:hover { opacity: 0.7; }
 
 /* 通用弹窗表单 */
-.nickname-modal, .password-modal { max-width: 400px; }
+.nickname-modal, .password-modal, .recharge-modal { max-width: 400px; }
 .dialog-body { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
 .input-group { display: flex; flex-direction: column; gap: 6px; }
 .input-group label { font-size: 13px; color: #666; }
@@ -484,6 +623,26 @@ const menuItems = [
 .btn-dialog-confirm { padding: 9px 22px; background: var(--primary); color: #fff; border-radius: 8px; font-size: 14px; transition: all 0.2s; }
 .btn-dialog-confirm:hover:not(:disabled) { background: var(--primary-hover); }
 .btn-dialog-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+.recharge-hint { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+/* 微信支付弹窗 */
+.wx-pay-modal { max-width: 380px; padding: 0; overflow: hidden; }
+.wx-pay { padding: 28px 24px 24px; }
+.wx-pay-header { text-align: center; position: relative; margin-bottom: 20px; }
+.wx-close { position: absolute; left: 0; top: -4px; background: none; border: none; font-size: 24px; color: #999; cursor: pointer; line-height: 1; }
+.wx-close:hover { color: #333; }
+.wx-title { font-size: 17px; font-weight: 600; color: #333; }
+.wx-amount { text-align: center; margin-bottom: 24px; }
+.wx-currency { font-size: 20px; font-weight: 600; color: #333; vertical-align: top; margin-right: 2px; }
+.wx-price { font-size: 40px; font-weight: 700; color: #333; }
+.wx-info { background: #f9f9f9; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; }
+.wx-info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.wx-info-row label { color: #999; }
+.wx-info-row span { color: #333; }
+.wx-password { margin-bottom: 20px; }
+.wx-pay-btn { display: block; width: 100%; padding: 13px; background: #07c160; color: #fff; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s; }
+.wx-pay-btn:hover:not(:disabled) { background: #06ad56; }
+.wx-pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

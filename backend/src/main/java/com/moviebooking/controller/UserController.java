@@ -4,6 +4,7 @@ import com.moviebooking.common.ApiResult;
 import com.moviebooking.dto.LoginRequest;
 import com.moviebooking.dto.RegisterRequest;
 import com.moviebooking.dto.ChangePasswordRequest;
+import com.moviebooking.dto.RechargeRequest;
 import com.moviebooking.dto.UpdateProfileRequest;
 import com.moviebooking.entity.enums.UserRole;
 import com.moviebooking.service.UserService;
@@ -51,5 +52,11 @@ public class UserController {
         Long userId = (Long) request.getAttribute("userId");
         userService.changePassword(userId, body.getOldPassword(), body.getNewPassword());
         return ApiResult.success("密码修改成功");
+    }
+
+    @PostMapping("/recharge")
+    public ApiResult<?> recharge(HttpServletRequest request, @Valid @RequestBody RechargeRequest body) {
+        Long userId = (Long) request.getAttribute("userId");
+        return ApiResult.success("充值成功", userService.recharge(userId, body.getAmount(), body.getPassword()));
     }
 }

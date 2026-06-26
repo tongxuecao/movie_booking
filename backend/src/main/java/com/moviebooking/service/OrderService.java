@@ -114,25 +114,58 @@ public class OrderService {
         return result;
     }
 
+    @Transactional
     public Map<String, Object> createOrder(Long userId, CreateOrderRequest request) {
         // 验证锁是否有效
         if (!seatLockService.isLockedByUser(request.getShowtimeId(), userId, request.getSeatIds())) {
             throw BusinessException.badRequest("座位锁已过期，请重新选择");
         }
 
-        String orderNo = OrderNoGenerator.generate();
+        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
+                .orElseThrow(() -> BusinessException.notFound("场次不存在"));
 
-        // 推入 Redis Stream 异步处理
+        List<Seat> seats = seatRepository.findAllById(request.getSeatIds());
+        if (seats.size() != request.getSeatIds().size()) {
+            throw BusinessException.badRequest("部分座位不存在");
+        }
+
+        // 计算价格
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<OrderSeat> orderSeats = new ArrayList<>();
+        for (Seat seat : seats) {
+            BigDecimal seatPrice = calculateSeatPrice(showtime.getPrice(), seat.getSeatType());
+            totalAmount = totalAmount.add(seatPrice);
+            OrderSeat os = new OrderSeat();
+            os.setSeatId(seat.getId());
+            os.setPrice(seatPrice);
+            orderSeats.add(os);
+        }
+
+        // 1. 先写入DB（pending状态），确保订单立即可见
+        String orderNo = OrderNoGenerator.generate();
+        Order order = new Order();
+        order.setOrderNo(orderNo);
+        order.setUserId(userId);
+        order.setShowtimeId(request.getShowtimeId());
+        order.setTotalAmount(totalAmount);
+        order.setStatus(OrderStatus.pending);
+        order = orderRepository.save(order);
+
+        for (OrderSeat os : orderSeats) {
+            os.setOrderId(order.getId());
+        }
+        orderSeatRepository.saveAll(orderSeats);
+
+        // 2. 推入Redis队列异步处理自动扣款
         String seatIdsStr = request.getSeatIds().stream()
                 .map(String::valueOf)
                 .reduce((a, b) -> a + "," + b)
                 .orElse("");
-
         orderStreamProducer.sendOrderRequest(orderNo, userId, request.getShowtimeId(), seatIdsStr, request.getLockToken());
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", orderNo);
-        result.put("status", "processing");
+        result.put("status", "pending");
         return result;
     }
 
@@ -173,6 +206,68 @@ public class OrderService {
 
         var list = orderPage.getContent().stream().map(this::toOrderBrief).toList();
         return new PageResult<>(list, orderPage.getTotalElements(), page, size);
+    }
+
+    @Transactional
+    public Map<String, Object> payOrder(String orderNo, Long userId, String password) {
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> BusinessException.notFound("订单不存在"));
+
+        if (!order.getUserId().equals(userId)) {
+            throw BusinessException.badRequest("无权操作此订单");
+        }
+
+        if (order.getStatus() != OrderStatus.pending) {
+            throw BusinessException.badRequest("订单状态异常，无法支付");
+        }
+
+        // 验证支付密码
+        User payUser = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+        if (password == null || password.isEmpty()) {
+            throw BusinessException.badRequest("请输入支付密码");
+        }
+        if (!org.springframework.security.crypto.bcrypt.BCrypt.checkpw(password, payUser.getPassword())) {
+            throw BusinessException.badRequest("支付密码错误");
+        }
+
+        // 检查余额
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        if (user.getWalletBalance().compareTo(order.getTotalAmount()) < 0) {
+            throw BusinessException.badRequest("余额不足，请先充值");
+        }
+
+        // 扣款
+        int updated = userRepository.deductBalance(userId, order.getTotalAmount(), user.getVersion());
+        if (updated == 0) {
+            throw BusinessException.badRequest("支付失败，请重试");
+        }
+
+        // 更新订单状态
+        order.setStatus(OrderStatus.paid);
+        order.setRemark(null);
+        orderRepository.save(order);
+
+        // 创建支付记录
+        Payment payment = new Payment();
+        payment.setOrderId(order.getId());
+        payment.setUserId(userId);
+        payment.setAmount(order.getTotalAmount());
+        payment.setStatus(com.moviebooking.entity.enums.PaymentStatus.success);
+        paymentRepository.save(payment);
+
+        // 释放座位锁（如果还在）
+        List<OrderSeat> orderSeats = orderSeatRepository.findByOrderId(order.getId());
+        List<Long> seatIds = orderSeats.stream().map(OrderSeat::getSeatId).toList();
+        seatLockService.releaseUserLock(userId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderNo", orderNo);
+        result.put("status", "paid");
+        result.put("message", "支付成功");
+        return result;
     }
 
     @Transactional

@@ -28,8 +28,8 @@ public class AdminService {
     public Map<String, Object> getStatistics() {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
 
-        long todayOrderCount = orderRepository.countPaidOrdersSince(todayStart);
-        BigDecimal todayRevenue = orderRepository.sumRevenueSince(todayStart);
+        long todayOrderCount = orderRepository.countPaidOrdersSince(todayStart, OrderStatus.paid);
+        BigDecimal todayRevenue = orderRepository.sumRevenueSince(todayStart, OrderStatus.paid);
         long totalUsers = userRepository.count();
         long totalMovies = movieRepository.count();
 
@@ -40,8 +40,8 @@ public class AdminService {
             LocalDateTime start = date.atStartOfDay();
             LocalDateTime end = date.plusDays(1).atStartOfDay();
 
-            long count = orderRepository.countPaidOrdersSince(start) - orderRepository.countPaidOrdersSince(end);
-            BigDecimal revenue = orderRepository.sumRevenueSince(start).subtract(orderRepository.sumRevenueSince(end));
+            long count = orderRepository.countPaidOrdersSince(start, OrderStatus.paid) - orderRepository.countPaidOrdersSince(end, OrderStatus.paid);
+            BigDecimal revenue = orderRepository.sumRevenueSince(start, OrderStatus.paid).subtract(orderRepository.sumRevenueSince(end, OrderStatus.paid));
 
             Map<String, Object> day = new HashMap<>();
             day.put("date", date.toString());
@@ -54,7 +54,7 @@ public class AdminService {
         List<Map<String, Object>> topMovies = new ArrayList<>();
         // 使用简化查询
         try {
-            var topShowtimes = orderRepository.findTopShowtimes(org.springframework.data.domain.PageRequest.of(0, 5));
+            var topShowtimes = orderRepository.findTopShowtimes(OrderStatus.paid, org.springframework.data.domain.PageRequest.of(0, 5));
             for (var row : topShowtimes) {
                 Long showtimeId = (Long) row[0];
                 Long count = (Long) row[1];

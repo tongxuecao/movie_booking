@@ -1,3 +1,4 @@
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\config\SoftAuthInterceptor.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\HallType.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\UpdateProfileRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\ReviewRequest.java
@@ -26,18 +27,23 @@ D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\re
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\LoginRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\PaymentStatus.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\redis\OrderStreamConsumer.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\RechargeRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\repository\OrderSeatRepository.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\WishService.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\NotificationStatus.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\repository\MovieRepository.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\Notification.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\BoxOfficeService.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\SeatStatus.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\common\ApiResult.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\Order.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\repository\SeatRepository.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\common\GlobalExceptionHandler.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\Cinema.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\ChangePasswordRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\HallRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\redis\OrderStreamProducer.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\PayOrderRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\controller\CinemaController.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\NotificationService.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\repository\PaymentRepository.java
@@ -51,6 +57,7 @@ D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\Mo
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\ReviewService.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\controller\ReviewController.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\UserService.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\config\SchedulingConfig.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\SeatType.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\ShowtimeService.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\RegisterRequest.java
@@ -63,6 +70,7 @@ D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\en
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\enums\MovieStatus.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\repository\MovieImageRepository.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\service\UploadService.java
+D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\controller\BoxOfficeController.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\controller\UploadController.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\dto\CreateOrderRequest.java
 D:\Github\software_engineering_project\backend\src\main\java\com\moviebooking\entity\Payment.java

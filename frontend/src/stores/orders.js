@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiGetOrders, apiGetOrder, apiGetOrderStatus, apiLockSeats, apiCreateOrder, apiCancelOrder } from '../services/api.js'
+import { apiGetOrders, apiGetOrder, apiGetOrderStatus, apiLockSeats, apiCreateOrder, apiCancelOrder, apiPayOrder } from '../services/api.js'
+import { useAuthStore } from './auth.js'
 
 const PAY_CTX_KEY = 'mt-payment-ctx'
 
@@ -65,5 +66,14 @@ export const useOrderStore = defineStore('orders', () => {
     return await apiCancelOrder(orderNo)
   }
 
-  return { orders, total, paymentContext, setPaymentContext, clearPaymentContext, fetchOrders, getOrderDetail, lockSeats, createOrder, pollOrderStatus, cancelOrder }
+  async function payOrder(orderNo, password) {
+    return await apiPayOrder(orderNo, password)
+  }
+
+  async function refreshProfile() {
+    const authStore = useAuthStore()
+    await authStore.refreshProfile()
+  }
+
+  return { orders, total, paymentContext, setPaymentContext, clearPaymentContext, fetchOrders, getOrderDetail, lockSeats, createOrder, pollOrderStatus, cancelOrder, payOrder, refreshProfile }
 })

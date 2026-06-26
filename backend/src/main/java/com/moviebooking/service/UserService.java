@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -122,6 +123,30 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+    }
+
+    public Map<String, Object> recharge(Long userId, BigDecimal amount, String password) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw BusinessException.badRequest("充值金额必须大于0");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        // 验证密码
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw BusinessException.badRequest("密码错误");
+        }
+
+        // 充值
+        userRepository.addBalance(userId, amount);
+
+        // 获取更新后的余额
+        User updatedUser = userRepository.findById(userId).orElseThrow();
+        Map<String, Object> result = new HashMap<>();
+        result.put("walletBalance", updatedUser.getWalletBalance());
+        result.put("rechargeAmount", amount);
+        return result;
     }
 
     private String maskPhone(String phone) {
