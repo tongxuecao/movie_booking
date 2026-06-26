@@ -12,7 +12,6 @@ const props = defineProps({
 const emit = defineEmits(['need-login'])
 
 const auth = useAuthStore()
-const canReview = ref(false)
 const hasReviewed = ref(false)
 const userRating = ref(0)
 const averageRating = ref(null)
@@ -36,7 +35,6 @@ onMounted(async () => {
 async function loadReviewStatus() {
   try {
     const status = await apiGetReviewStatus(props.movieId)
-    canReview.value = status.canReview
     hasReviewed.value = status.hasReviewed
     userRating.value = status.userRating || 0
     averageRating.value = status.averageRating || 0
@@ -63,10 +61,6 @@ async function loadReviews() {
 function openRatingDialog() {
   if (!auth.isLoggedIn) {
     emit('need-login')
-    return
-  }
-  if (!canReview.value) {
-    ElMessage.warning('只有看过这部电影的用户才能评分')
     return
   }
   selectedRating.value = userRating.value || 0
@@ -151,17 +145,14 @@ function handlePageChange(page) {
         </div>
       </div>
 
-      <div v-if="canReview" class="user-rating">
+      <div v-if="auth.isLoggedIn" class="user-rating">
         <button class="rating-btn" @click="openRatingDialog">
           {{ hasReviewed ? '修改评分' : '立即评分' }}
         </button>
         <span v-if="hasReviewed" class="user-score">我的评分: {{ userRating }}分</span>
       </div>
-      <div v-else-if="auth.isLoggedIn" class="cannot-review">
-        <span>购票观影后即可评分和评论</span>
-      </div>
       <div v-else class="cannot-review">
-        <span>登录并购票后即可评分和评论</span>
+        <span>登录后即可评分和评论</span>
       </div>
     </div>
 
@@ -206,7 +197,7 @@ function handlePageChange(page) {
         <div v-else class="reviews-empty">
           <div class="empty-icon">&#128172;</div>
           <p>暂无评论</p>
-          <p class="empty-hint">购票观影后即可评分和评论</p>
+          <p class="empty-hint">登录后即可评分和评论</p>
         </div>
       </template>
     </div>
