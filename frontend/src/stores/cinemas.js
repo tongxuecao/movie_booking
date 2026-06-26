@@ -18,5 +18,15 @@ export const useCinemaStore = defineStore('cinemas', () => {
     return cinemas.value.find(c => c.id === id) || null
   }
 
-  return { cinemas, total, currentPage, fetchCinemas, getCinema }
+  async function fetchCinema(id) {
+    // 先从本地缓存找，没有则拉取列表
+    let c = getCinema(id)
+    if (!c) {
+      await fetchCinemas({ size: 200 })
+      c = getCinema(id)
+    }
+    return c
+  }
+
+  return { cinemas, total, currentPage, fetchCinemas, getCinema, fetchCinema }
 })

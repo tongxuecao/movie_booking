@@ -16,6 +16,11 @@ public class ShowtimeController {
         this.showtimeService = showtimeService;
     }
 
+    @GetMapping("/{id}")
+    public ApiResult<?> getShowtimeDetail(@PathVariable Long id) {
+        return ApiResult.success(showtimeService.getShowtimeDetail(id));
+    }
+
     @GetMapping("/list")
     public ApiResult<?> getShowtimeList(
             @RequestParam Long movieId,

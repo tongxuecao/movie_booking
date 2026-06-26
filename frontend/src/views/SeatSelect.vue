@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrderStore } from '../stores/orders.js'
-import { apiGetSeats } from '../services/api.js'
+import { apiGetSeats, apiGetShowtime } from '../services/api.js'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -11,11 +11,17 @@ const orderStore = useOrderStore()
 
 const showtimeId = Number(route.params.showtimeId)
 const seatData = ref(null)
+const basePrice = ref(0)
 const loading = ref(true)
 
 onMounted(async () => {
   try {
-    seatData.value = await apiGetSeats(showtimeId)
+    const [seats, showtime] = await Promise.all([
+      apiGetSeats(showtimeId),
+      apiGetShowtime(showtimeId).catch(() => null),
+    ])
+    seatData.value = seats
+    basePrice.value = showtime?.price || 0
   } catch {
     ElMessage.error('获取座位信息失败')
     router.replace('/')
@@ -42,7 +48,15 @@ function toggleSeat(seat) {
 }
 
 const selectedList = computed(() => Object.values(selected.value))
-const totalAmount = computed(() => selectedList.value.reduce((sum, s) => sum + (s.price || 0), 0))
+
+function getSeatPrice(seat) {
+  const base = basePrice.value || 0
+  if (seat.type === 'vip') return base * 1.5
+  if (seat.type === 'couple') return base * 2
+  return base
+}
+
+const totalAmount = computed(() => selectedList.value.reduce((sum, s) => sum + getSeatPrice(s), 0))
 
 const locking = ref(false)
 async function handleConfirm() {
@@ -51,10 +65,22 @@ async function handleConfirm() {
   try {
     const seatIds = selectedList.value.map(s => s.id)
     const lockData = await orderStore.lockSeats(showtimeId, seatIds)
-    router.push({
-      path: '/payment',
-      query: { showtimeId, seatIds: seatIds.join(','), lockToken: lockData.lockToken },
+    // 使用 lock 返回的真实价格
+    const lockSeats = lockData.seats || []
+    const lockTotal = lockData.totalAmount || totalAmount.value
+    orderStore.setPaymentContext({
+      showtimeId,
+      seatIds,
+      lockToken: lockData.lockToken,
+      movieTitle: seatData.value?.movieTitle || '',
+      hallName: seatData.value?.hallName || '',
+      showDate: seatData.value?.showDate || '',
+      showTime: seatData.value?.showTime || '',
+      cinemaName: seatData.value?.cinemaName || '',
+      seats: lockSeats.length ? lockSeats.map(s => `${s.row}排${s.col}座`) : selectedList.value.map(s => `${s.row}排${s.col}座`),
+      totalAmount: Number(lockTotal) || 0,
     })
+    router.push('/payment')
   } catch (e) {
     ElMessage.error(e.message || '锁座失败，请重试')
   } finally {
@@ -123,7 +149,7 @@ const cols = computed(() => seatData.value?.cols || 10)
     <div class="seat-bottom" v-if="selectedList.length">
       <div class="selected-info">
         <span>已选：{{ selectedList.map(s => `${s.row}排${s.col}座`).join('、') }}</span>
-        <span class="total-price">&yen;{{ totalAmount.toFixed(1) }}</span>
+        <span class="total-price">&yen;{{ totalAmount.toFixed(2) }}</span>
       </div>
       <button class="btn-confirm" :disabled="locking" @click="handleConfirm">
         {{ locking ? '锁座中...' : '确认选座' }}
@@ -150,12 +176,12 @@ const cols = computed(() => seatData.value?.cols || 10)
 .seat-grid { display: grid; gap: 4px; justify-content: center; min-width: fit-content; }
 .row-label { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-light); font-weight: 600; }
 .seat-btn { width: 30px; height: 26px; border-radius: 3px 3px 7px 7px; border: 1px solid #ddd; background: #fff; font-size: 9px; color: #bbb; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
-.seat-btn:hover:not(.seat-sold) { border-color: var(--miku); color: var(--miku); }
+.seat-btn:hover:not(.seat-sold) { border-color: var(--accent); color: var(--accent); }
 .seat-normal { border-color: #c8e6c9; background: #e8f5e9; color: #66bb6a; }
 .seat-vip { border-color: #ffe0b2; background: #fff3e0; color: #ff9800; }
 .seat-couple { border-color: #f8bbd0; background: #fce4ec; color: #ec407a; }
 .seat-sold { border-color: #ddd; background: #f5f5f5; color: #ccc; cursor: not-allowed; }
-.seat-selected { border-color: var(--miku); background: var(--miku); color: #fff; }
+.seat-selected { border-color: var(--accent); background: var(--accent); color: #fff; }
 .seat-legend { display: flex; gap: 20px; justify-content: center; margin-top: 24px; flex-wrap: wrap; font-size: 12px; color: var(--text-light); }
 .seat-legend span { display: flex; align-items: center; gap: 4px; }
 .dot { width: 14px; height: 10px; border-radius: 2px 2px 4px 4px; display: inline-block; border: 1px solid #ddd; }
@@ -163,12 +189,12 @@ const cols = computed(() => seatData.value?.cols || 10)
 .dot.vip { background: #fff3e0; border-color: #ffe0b2; }
 .dot.couple { background: #fce4ec; border-color: #f8bbd0; }
 .dot.sold { background: #f5f5f5; border-color: #ddd; }
-.dot.selected { background: var(--miku); border-color: var(--miku); }
+.dot.selected { background: var(--accent); border-color: var(--accent); }
 .seat-bottom { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eee; padding: 16px 24px; margin-top: 32px; display: flex; align-items: center; justify-content: space-between; border-radius: 12px; box-shadow: 0 -2px 12px rgba(0,0,0,0.06); }
 .selected-info { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .total-price { font-size: 22px; font-weight: 700; color: var(--primary); }
-.btn-confirm { padding: 12px 40px; background: var(--miku); color: #fff; font-size: 16px; font-weight: 600; border-radius: 24px; transition: all 0.2s; }
-.btn-confirm:hover:not(:disabled) { background: var(--miku-hover); box-shadow: 0 4px 16px rgba(57,197,187,0.5); }
+.btn-confirm { padding: 12px 40px; background: var(--primary); color: #fff; font-size: 16px; font-weight: 600; border-radius: 24px; transition: all 0.2s; }
+.btn-confirm:hover:not(:disabled) { background: var(--primary-hover); box-shadow: 0 4px 16px rgba(231,76,60,0.4); }
 .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 .seat-bottom-empty { text-align: center; padding: 20px 0; margin-top: 24px; color: var(--text-light); font-size: 14px; }
 </style>

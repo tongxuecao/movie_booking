@@ -42,7 +42,7 @@ onMounted(async () => {
           <span v-if="movie.rating" class="tag rating">★ {{ movie.rating }}</span>
           <span class="tag">{{ movie.genre }}</span>
           <span class="tag">{{ movie.duration }}分钟</span>
-          <span class="tag" :class="movie.status === 'showing' ? 'showing' : 'coming'">
+          <span class="tag" :class="movie.status === 'showing' ? 'showing' : 'upcoming'">
             {{ movie.status === 'showing' ? '热映中' : '即将上映' }}
           </span>
         </div>
@@ -84,7 +84,7 @@ onMounted(async () => {
 .tag { padding: 4px 12px; border-radius: 4px; font-size: 13px; background: #f0f0f0; color: #666; }
 .tag.rating { background: #fff3e0; color: #ff9800; font-weight: 700; }
 .tag.showing { background: #e8f5e9; color: #4caf50; }
-.tag.coming { background: #e3f2fd; color: #2196f3; }
+.tag.upcoming { background: #e3f2fd; color: #2196f3; }
 .info-block { background: #fafafa; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; }
 .field { display: flex; gap: 12px; padding: 8px 0; font-size: 15px; }
 .field label { color: var(--text-light); min-width: 72px; }

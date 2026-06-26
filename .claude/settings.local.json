@@ -18,7 +18,8 @@
       "Bash(curl -s -X POST http://localhost:8080/api/admin/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"123456\"}')",
       "Bash(curl -s -X POST http://localhost:8080/api/user/register -H \"Content-Type: application/json\" -d '{\"username\":\"testhash\",\"password\":\"123456\",\"phone\":\"13900009999\"}')",
       "Bash(mysql -u root -pclh123456 movie_ticket -e \"UPDATE users SET password='\\\\$2a\\\\$10\\\\$46Rl1nNTsWP7wnPrWgOqbuRvN6UsRMBjbKsZ9qzEZklAoteaIINs2' WHERE username != 'testhash';\")",
-      "Bash(curl -s -X POST http://localhost:8080/api/user/login -H \"Content-Type: application/json\" -d '{\"username\":\"zhangsan\",\"password\":\"123456\"}')"
+      "Bash(curl -s -X POST http://localhost:8080/api/user/login -H \"Content-Type: application/json\" -d '{\"username\":\"zhangsan\",\"password\":\"123456\"}')",
+      "Bash(npm run *)"
     ]
   }
 }

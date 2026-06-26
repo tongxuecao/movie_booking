@@ -147,7 +147,7 @@ public class OrderService {
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", order.getOrderNo());
         result.put("status", order.getStatus().name());
-        result.put("message", getStatusMessage(order.getStatus()));
+        result.put("message", order.getRemark() != null ? order.getRemark() : getStatusMessage(order.getStatus()));
         return result;
     }
 
@@ -308,7 +308,7 @@ public class OrderService {
             case pending -> "排队中";
             case paid -> "支付成功";
             case refunded -> "已退款";
-            case cancelled -> "已取消";
+            case cancelled -> "支付失败";
         };
     }
 

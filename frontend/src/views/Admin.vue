@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { useMovieStore } from '../stores/movies.js'
 import { useOrderStore } from '../stores/orders.js'
-import { apiCreateMovie, apiUpdateMovie, apiDeleteMovie, apiCreateShowtime, apiGetAdminOrders, apiGetStatistics, apiUploadImage } from '../services/api.js'
+import { apiCreateMovie, apiUpdateMovie, apiDeleteMovie, apiCreateShowtime, apiGetAdminOrders, apiGetStatistics, apiUploadImage, getToken } from '../services/api.js'
+import { API_BASE, resolveImageUrl } from '../config.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -82,6 +83,28 @@ async function handlePosterUpload(e) {
   } catch (e) { ElMessage.error(e.message || '上传失败') }
 }
 
+const uploadHeaders = computed(() => {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+})
+
+function handleUploadSuccess(res) {
+  if (res.code === 200) {
+    movieForm.poster = resolveImageUrl(res.data?.url || '')
+    ElMessage.success('上传成功')
+  } else {
+    ElMessage.error(res.message || '上传失败')
+  }
+}
+
+function beforePosterUpload(file) {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { ElMessage.error('只能上传图片文件'); return false }
+  if (!isLt5M) { ElMessage.error('图片大小不能超过5MB'); return false }
+  return true
+}
+
 // ==================== SHOWTIME ====================
 const showStForm = ref(false)
 const stForm = reactive({ movieId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
@@ -154,7 +177,7 @@ function switchTab(tab) {
               <td>{{ m.director }}</td>
               <td>{{ m.genre }}</td>
               <td>{{ m.rating ?? '-' }}</td>
-              <td><span class="status-badge" :class="m.status">{{ m.status === 'showing' ? '热映' : '即将' }}</span></td>
+              <td><span class="status-badge" :class="m.status">{{ m.status === 'showing' ? '热映' : m.status === 'upcoming' ? '即将' : m.status }}</span></td>
               <td><button class="btn-edit" @click="openMovieEdit(m)">编辑</button><button class="btn-del" @click="handleMovieDelete(m)">删除</button></td>
             </tr>
           </tbody>
@@ -220,12 +243,33 @@ function switchTab(tab) {
         <div class="modal">
           <div class="modal-head"><h3>{{ editingMovieId ? '编辑电影' : '添加电影' }}</h3><button class="btn-close" @click="closeMovieForm">&times;</button></div>
           <div class="modal-body">
-            <div class="form-row"><div class="form-group flex-2"><label>电影名称*</label><input v-model="movieForm.title" /></div><div class="form-group flex-1"><label>状态</label><select v-model="movieForm.status"><option value="showing">热映中</option><option value="coming">即将上映</option></select></div></div>
+            <div class="form-row"><div class="form-group flex-2"><label>电影名称*</label><input v-model="movieForm.title" /></div><div class="form-group flex-1"><label>状态</label><select v-model="movieForm.status"><option value="showing">热映中</option><option value="upcoming">即将上映</option></select></div></div>
             <div class="form-row"><div class="form-group flex-1"><label>导演</label><input v-model="movieForm.director" /></div><div class="form-group flex-1"><label>类型</label><input v-model="movieForm.genre" placeholder="动作 / 冒险" /></div></div>
             <div class="form-row"><div class="form-group flex-1"><label>片长(分钟)</label><input v-model.number="movieForm.duration" type="number" /></div><div class="form-group flex-1"><label>评分</label><input v-model.number="movieForm.rating" type="number" step="0.1" /></div><div class="form-group flex-1"><label>上映日期</label><input v-model="movieForm.releaseDate" type="date" /></div></div>
             <div class="form-group"><label>主演</label><input v-model="movieForm.actors" placeholder="演员1 / 演员2" /></div>
             <div class="form-group"><label>剧情简介</label><textarea v-model="movieForm.description" rows="3" /></div>
-            <div class="form-group"><label>海报</label><div class="poster-row"><input v-model="movieForm.poster" placeholder="图片URL" /><label class="btn-upload">上传<input type="file" accept="image/*" hidden @change="handlePosterUpload" /></label></div><img v-if="movieForm.poster" :src="movieForm.poster" class="poster-preview" /></div>
+            <div class="form-group">
+              <label>海报</label>
+              <div class="poster-row">
+                <input v-model="movieForm.poster" placeholder="或直接输入图片URL" />
+              </div>
+              <div class="poster-upload-area">
+                <el-upload
+                  :action="API_BASE + '/upload/image'"
+                  :headers="uploadHeaders"
+                  :show-file-list="false"
+                  :before-upload="beforePosterUpload"
+                  :on-success="handleUploadSuccess"
+                  accept="image/*"
+                >
+                  <div class="upload-trigger" v-if="!movieForm.poster">
+                    <span class="upload-icon">+</span>
+                    <span class="upload-text">上传海报</span>
+                  </div>
+                  <img v-else :src="movieForm.poster" class="poster-preview" />
+                </el-upload>
+              </div>
+            </div>
           </div>
           <div class="modal-foot"><button class="btn-cancel" @click="closeMovieForm">取消</button><button class="btn-save" @click="handleMovieSave">{{ editingMovieId ? '保存' : '添加' }}</button></div>
         </div>
@@ -278,7 +322,7 @@ td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f5f5f5; }
 .mono { font-family: monospace; font-size: 12px; }
 .status-badge { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
 .status-badge.showing { background: #e8f5e9; color: #4caf50; }
-.status-badge.coming { background: #e3f2fd; color: #2196f3; }
+.status-badge.upcoming { background: #e3f2fd; color: #2196f3; }
 .status-badge.paid { background: #e8f5e9; color: #4caf50; }
 .status-badge.processing { background: #fff3e0; color: #ff9800; }
 .status-badge.cancelled { background: #f5f5f5; color: #999; }
@@ -310,11 +354,14 @@ td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f5f5f5; }
 .form-group textarea { resize: vertical; }
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
-.poster-row { display: flex; gap: 10px; }
+.poster-row { display: flex; gap: 10px; margin-bottom: 12px; }
 .poster-row input { flex: 1; }
-.btn-upload { display: inline-block; padding: 8px 16px; background: #f0f0f0; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
-.btn-upload:hover { background: #e0e0e0; }
-.poster-preview { width: 80px; margin-top: 8px; border-radius: 4px; }
+.poster-upload-area { display: inline-block; }
+.upload-trigger { width: 120px; height: 160px; border: 2px dashed #ddd; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+.upload-trigger:hover { border-color: var(--primary); }
+.upload-icon { font-size: 32px; color: #ccc; line-height: 1; }
+.upload-text { font-size: 12px; color: #999; margin-top: 4px; }
+.poster-preview { width: 120px; height: 160px; object-fit: cover; border-radius: 8px; cursor: pointer; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #eee; }
 .btn-cancel { padding: 9px 22px; background: #f0f0f0; border-radius: 6px; font-size: 14px; color: #666; }
 .btn-cancel:hover { background: #e0e0e0; }

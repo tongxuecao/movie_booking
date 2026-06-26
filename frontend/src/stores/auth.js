@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiLogin, apiRegister, apiAdminLogin, apiGetProfile, getToken, removeToken, getStoredUser } from '../services/api.js'
+import { apiLogin, apiRegister, apiAdminLogin, apiGetProfile, getToken, removeToken, getStoredUser, setStoredUser } from '../services/api.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const currentUser = ref(getStoredUser())
@@ -8,6 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => currentUser.value !== null)
   const isAdmin = computed(() => currentUser.value?.role === 'admin')
   const currentUsername = computed(() => currentUser.value?.username || '')
+  const walletBalance = computed(() => Number(currentUser.value?.walletBalance) || 0)
+  const avatar = computed(() => currentUser.value?.avatar || '')
 
   async function login(username, password) {
     const data = await apiLogin(username, password)
@@ -36,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const profile = await apiGetProfile()
       currentUser.value = profile
+      setStoredUser(profile)
       return true
     } catch {
       removeToken()
@@ -44,5 +47,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { currentUser, isLoggedIn, isAdmin, currentUsername, login, adminLogin, register, logout, restoreSession }
+  async function refreshProfile() {
+    try {
+      const profile = await apiGetProfile()
+      currentUser.value = profile
+      setStoredUser(profile)
+    } catch { /* ignore */ }
+  }
+
+  return { currentUser, isLoggedIn, isAdmin, currentUsername, walletBalance, avatar, login, adminLogin, register, logout, restoreSession, refreshProfile }
 })

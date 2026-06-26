@@ -75,6 +75,7 @@ export async function apiLogin(username, password) {
 }
 export function apiGetProfile() { return get('/user/profile') }
 export function apiUpdateProfile(data) { return put('/user/profile', data) }
+export function apiChangePassword(oldPassword, newPassword) { return put('/user/password', { oldPassword, newPassword }) }
 
 // ==================== 电影 ====================
 export function apiGetMovies(params) { return get('/movie/list', params) }
@@ -85,6 +86,7 @@ export function apiGetCinemas(params) { return get('/cinema/list', params) }
 
 // ==================== 排片 ====================
 export function apiGetShowtimes(params) { return get('/showtime/list', params) }
+export function apiGetShowtime(id) { return get(`/showtime/${id}`) }
 export function apiGetSeats(showtimeId) { return get(`/showtime/${showtimeId}/seats`) }
 
 // ==================== 订单 ====================

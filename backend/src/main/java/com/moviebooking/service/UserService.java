@@ -96,12 +96,31 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.notFound("用户不存在"));
 
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            String newName = request.getUsername().trim();
+            if (!newName.equals(user.getUsername()) && userRepository.existsByUsername(newName)) {
+                throw BusinessException.badRequest("用户名已被占用");
+            }
+            user.setUsername(newName);
+        }
         if (request.getPhone() != null) {
             user.setPhone(request.getPhone());
         }
         if (request.getAvatar() != null) {
             user.setAvatar(request.getAvatar());
         }
+        userRepository.save(user);
+    }
+
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw BusinessException.badRequest("旧密码错误");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
 

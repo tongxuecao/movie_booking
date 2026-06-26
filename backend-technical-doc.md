@@ -47,7 +47,7 @@ backend/src/main/java/com/moviebooking/
 ├── service/       ← 9 个服务类，核心业务逻辑
 ├── repository/    ← 12 个 JPA 接口，数据库操作
 ├── entity/        ← 12 个实体类 + 12 个枚举类
-├── dto/           ← 11 个请求数据传输对象
+├── dto/           ← 12 个请求数据传输对象（含 ChangePasswordRequest）
 ├── config/        ← 3 个配置类 (JWT拦截器、Web配置、Redis配置)
 ├── redis/         ← 3 个 Redis 相关类 (锁座服务、订单生产者/消费者)
 ├── common/        ← 4 个通用类 (统一响应、分页、异常、全局异常处理)
@@ -427,6 +427,8 @@ Page<Movie> findByStatusAndKeyword(@Param("status") MovieStatus status, @Param("
 
 **管理员操作：** 增删改电影，使用 `applyMovieFields` 方法实现部分更新（只更新非 null 字段）。
 
+**状态枚举注意：** `MovieStatus` 枚举值为 `upcoming`/`showing`/`ended`。`valueOf()` 对无效值会抛 `IllegalArgumentException`，已加 try-catch 包装为 `BusinessException.badRequest`。
+
 ### 7.3 影院模块 (CinemaService)
 
 **创建影厅时自动生成座位：**
@@ -486,10 +488,12 @@ List<Long> findSoldSeatIdsByShowtimeId(@Param("showtimeId") Long showtimeId);
 1. 校验文件非空
 2. 校验扩展名 (jpg/jpeg/png/gif/webp)
 3. 生成 UUID 文件名避免冲突
-4. 保存到 `./uploads/` 目录
+4. 使用 `getAbsoluteFile()` 获取绝对路径后保存到 `./uploads/` 目录
 5. 返回 URL：`/uploads/xxxxxxxx.jpg`
 
-静态资源通过 `WebConfig.addResourceHandlers` 映射到文件系统。
+静态资源通过 `WebConfig.addResourceHandlers` 映射到文件系统，使用 `File.toURI().toString()` 生成正确的 `file:///` URI。
+
+**注意：** 必须使用绝对路径，否则 `transferTo` 在 Windows 上可能因相对路径失败。
 
 ---
 
@@ -816,7 +820,8 @@ app:
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/user/profile` | 获取个人信息 |
-| PUT | `/api/user/profile` | 修改个人信息 |
+| PUT | `/api/user/profile` | 修改个人信息（支持 username/phone/avatar） |
+| PUT | `/api/user/password` | 修改密码（需校验旧密码） |
 | POST | `/api/order/lock` | 锁定座位 |
 | POST | `/api/order/create` | 创建订单 |
 | GET | `/api/order/status/{orderNo}` | 查询订单状态 |

@@ -221,11 +221,11 @@ function goSeatSelect(showtime) {
   transition: all 0.2s;
 }
 
-.bt-dates button:hover { border-color: var(--miku); }
+.bt-dates button:hover { border-color: var(--accent); }
 
 .bt-dates button.active {
-  background: var(--miku);
-  border-color: var(--miku);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
@@ -265,7 +265,7 @@ function goSeatSelect(showtime) {
 
 .btn-buy-miku {
   padding: 8px 20px;
-  background: var(--miku);
+  background: var(--primary);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -275,8 +275,8 @@ function goSeatSelect(showtime) {
 }
 
 .btn-buy-miku:hover {
-  background: var(--miku-hover);
-  box-shadow: 0 2px 8px rgba(57, 197, 187, 0.4);
+  background: var(--primary-hover);
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
 }
 
 .bt-empty { text-align: center; padding: 48px 0; color: var(--text-light); }

@@ -1,14 +1,13 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 import { useAuthStore } from './stores/auth.js'
 
-const router = useRouter()
 const auth = useAuthStore()
 
-function handleLogout() {
-  auth.logout()
-  router.push('/')
-}
+const avatarLetter = computed(() => {
+  const name = auth.currentUsername || ''
+  return name.charAt(0).toUpperCase() || '?'
+})
 </script>
 
 <template>
@@ -17,16 +16,19 @@ function handleLogout() {
       <div class="header-inner">
         <router-link to="/" class="logo">MovieTicket</router-link>
         <nav class="nav">
-          <router-link to="/" class="nav-link" active-class="active" exact>首页</router-link>
+          <router-link to="/" class="nav-link" active-class="active">首页</router-link>
           <router-link to="/cinemas" class="nav-link" active-class="active">影院</router-link>
           <router-link to="/admin" v-if="auth.isAdmin" class="nav-link" active-class="active">管理</router-link>
         </nav>
         <div class="user-area">
           <template v-if="auth.isLoggedIn">
-            <router-link to="/my" class="nav-link my-link" active-class="active">我的</router-link>
-            <span class="user-name">{{ auth.currentUsername }}</span>
-            <span v-if="auth.isAdmin" class="admin-badge">管理员</span>
-            <button class="logout-btn" @click="handleLogout">退出</button>
+            <router-link to="/my" class="user-info">
+              <span class="header-avatar">
+                <img v-if="auth.avatar" :src="auth.avatar" alt="" />
+                <span v-else>{{ avatarLetter }}</span>
+              </span>
+              <span class="header-username">{{ auth.currentUsername }}</span>
+            </router-link>
           </template>
           <template v-else>
             <router-link to="/login" class="login-btn">登录</router-link>
@@ -48,21 +50,21 @@ function handleLogout() {
         </div>
         <div class="footer-section">
           <h4>服务支持</h4>
-          <p>帮助中心</p>
-          <p>退票说明</p>
-          <p>改签规则</p>
+          <p class="dead-link">帮助中心</p>
+          <p class="dead-link">退票说明</p>
+          <p class="dead-link">改签规则</p>
         </div>
         <div class="footer-section">
           <h4>关于我们</h4>
-          <p>公司介绍</p>
-          <p>联系方式</p>
-          <p>加入我们</p>
+          <p class="dead-link">公司介绍</p>
+          <p class="dead-link">联系方式</p>
+          <p class="dead-link">加入我们</p>
         </div>
       </div>
       <div class="footer-disclaimer">
         <p>免责声明：本网站仅为演示项目，所有电影信息、影院数据及图片仅供学习参考，不构成任何商业用途。</p>
         <p>电影海报图片来源于互联网，若涉及版权问题请联系删除。票价、场次等信息以实际影院公布为准。</p>
-        <p class="footer-copy">&copy; 2025 MovieTicket. All rights reserved.</p>
+        <p class="footer-copy">&copy; 2026 MovieTicket. All rights reserved.</p>
       </div>
     </footer>
   </div>
@@ -120,11 +122,6 @@ function handleLogout() {
   background: rgba(231, 76, 60, 0.06);
 }
 
-.my-link {
-  font-size: 13px;
-  padding: 4px 12px;
-}
-
 .user-area {
   display: flex;
   align-items: center;
@@ -132,17 +129,42 @@ function handleLogout() {
   white-space: nowrap;
 }
 
-.user-name {
-  font-size: 14px;
-  color: #333;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  transition: background 0.2s;
 }
 
-.admin-badge {
-  font-size: 11px;
-  padding: 1px 8px;
-  background: #fff3e0;
-  color: #ff9800;
-  border-radius: 10px;
+.user-info:hover { background: #f5f5f5; }
+
+.header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.header-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.header-username {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
 }
 
 .login-btn {
@@ -162,17 +184,6 @@ function handleLogout() {
 }
 
 .register-link:hover { color: var(--primary); }
-
-.logout-btn {
-  padding: 5px 14px;
-  background: none;
-  font-size: 13px;
-  color: var(--text-light);
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover { color: var(--primary); background: #fafafa; }
 
 .app-main {
   flex: 1;
@@ -204,11 +215,9 @@ function handleLogout() {
   margin-bottom: 6px;
   font-size: 12px;
   color: rgba(255,255,255,0.45);
-  transition: color 0.2s;
-  cursor: default;
 }
 
-.footer-section p:hover { color: rgba(255,255,255,0.75); }
+.dead-link { cursor: default; }
 
 .footer-disclaimer {
   max-width: 1200px;

@@ -2,7 +2,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCinemaStore } from '../stores/cinemas.js'
-import BuyTicket from '../components/BuyTicket.vue'
 
 const router = useRouter()
 const cinemaStore = useCinemaStore()
@@ -28,8 +27,9 @@ const pagedCinemas = computed(() => {
   return filteredCinemas.value.slice(start, start + pageSize)
 })
 
-const buyMovie = ref(null)
-const buyCinemaId = ref(null)
+function goCinema(id) {
+  router.push(`/cinema/${id}`)
+}
 </script>
 
 <template>
@@ -38,17 +38,18 @@ const buyCinemaId = ref(null)
 
     <div class="search-bar">
       <el-input v-model="searchKeyword" placeholder="搜索影院名称或地址…" clearable @input="currentPage = 1">
-        <template #prefix><span>🔍</span></template>
+        <template #prefix><span>&#128269;</span></template>
       </el-input>
     </div>
 
     <div class="cinema-list" v-if="pagedCinemas.length">
-      <div v-for="cinema in pagedCinemas" :key="cinema.id" class="cinema-card">
+      <div v-for="cinema in pagedCinemas" :key="cinema.id" class="cinema-card" @click="goCinema(cinema.id)" role="link" tabindex="0" @keydown.enter="goCinema(cinema.id)">
         <div class="cinema-info">
           <h3>{{ cinema.name }}</h3>
           <p class="addr">{{ cinema.address }}</p>
-          <p class="phone" v-if="cinema.phone">📞 {{ cinema.phone }}</p>
+          <p class="phone" v-if="cinema.phone"><a :href="'tel:' + cinema.phone">&#128222; {{ cinema.phone }}</a></p>
         </div>
+        <span class="arrow">&rsaquo;</span>
       </div>
     </div>
     <div class="empty" v-else>暂无匹配的影院</div>
@@ -66,11 +67,14 @@ const buyCinemaId = ref(null)
 .page-header p { font-size: 14px; color: var(--text-light); }
 .search-bar { margin-bottom: 20px; max-width: 480px; }
 .cinema-list { display: flex; flex-direction: column; gap: 14px; }
-.cinema-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; transition: box-shadow 0.2s; }
+.cinema-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; transition: box-shadow 0.2s; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 .cinema-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
 .cinema-info h3 { font-size: 17px; color: #111; margin-bottom: 4px; }
 .cinema-info .addr { font-size: 13px; color: var(--text-light); margin-bottom: 2px; }
 .cinema-info .phone { font-size: 13px; color: #666; }
+.cinema-info .phone a { color: #666; }
+.cinema-info .phone a:hover { color: var(--primary); }
+.arrow { font-size: 24px; color: #ccc; flex-shrink: 0; }
 .empty { text-align: center; padding: 80px 0; color: var(--text-light); }
 .pagination-wrap { display: flex; justify-content: center; margin-top: 32px; }
 </style>

@@ -39,15 +39,16 @@ public class UploadService {
 
         String filename = UUID.randomUUID().toString().replace("-", "") + ext;
 
-        File dir = new File(uploadPath);
+        File dir = new File(uploadPath).getAbsoluteFile();
         if (!dir.exists()) {
             dir.mkdirs();
         }
 
         try {
-            file.transferTo(new File(dir, filename));
+            File dest = new File(dir, filename);
+            file.transferTo(dest);
         } catch (IOException e) {
-            log.error("文件上传失败", e);
+            log.error("文件上传失败: dir={}, file={}", dir.getAbsolutePath(), filename, e);
             throw BusinessException.badRequest("文件上传失败");
         }
 

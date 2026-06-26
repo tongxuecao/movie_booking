@@ -3,6 +3,7 @@ package com.moviebooking.controller;
 import com.moviebooking.common.ApiResult;
 import com.moviebooking.dto.LoginRequest;
 import com.moviebooking.dto.RegisterRequest;
+import com.moviebooking.dto.ChangePasswordRequest;
 import com.moviebooking.dto.UpdateProfileRequest;
 import com.moviebooking.entity.enums.UserRole;
 import com.moviebooking.service.UserService;
@@ -43,5 +44,12 @@ public class UserController {
         Long userId = (Long) request.getAttribute("userId");
         userService.updateProfile(userId, body);
         return ApiResult.success("修改成功");
+    }
+
+    @PutMapping("/password")
+    public ApiResult<?> changePassword(HttpServletRequest request, @Valid @RequestBody ChangePasswordRequest body) {
+        Long userId = (Long) request.getAttribute("userId");
+        userService.changePassword(userId, body.getOldPassword(), body.getNewPassword());
+        return ApiResult.success("密码修改成功");
     }
 }

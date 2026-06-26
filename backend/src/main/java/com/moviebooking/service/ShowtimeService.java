@@ -32,6 +32,31 @@ public class ShowtimeService {
         this.movieRepository = movieRepository;
     }
 
+    public Map<String, Object> getShowtimeDetail(Long showtimeId) {
+        Showtime showtime = showtimeRepository.findById(showtimeId)
+                .orElseThrow(() -> BusinessException.notFound("场次不存在"));
+
+        Hall hall = hallRepository.findById(showtime.getHallId())
+                .orElseThrow(() -> BusinessException.notFound("影厅不存在"));
+
+        Cinema cinema = cinemaRepository.findById(hall.getCinemaId()).orElse(null);
+        Movie movie = movieRepository.findById(showtime.getMovieId()).orElse(null);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", showtime.getId());
+        result.put("movieId", showtime.getMovieId());
+        result.put("movieTitle", movie != null ? movie.getTitle() : null);
+        result.put("hallId", hall.getId());
+        result.put("hallName", hall.getName());
+        result.put("hallType", hall.getHallType().name());
+        result.put("cinemaId", hall.getCinemaId());
+        result.put("cinemaName", cinema != null ? cinema.getName() : null);
+        result.put("showDate", showtime.getShowDate());
+        result.put("showTime", showtime.getShowTime());
+        result.put("price", showtime.getPrice());
+        return result;
+    }
+
     public List<Map<String, Object>> getShowtimeList(Long movieId, Long cinemaId, String dateStr) {
         LocalDate date = (dateStr != null) ? LocalDate.parse(dateStr) : LocalDate.now();
         List<Showtime> showtimes = showtimeRepository.findByMovieIdAndCinemaIdAndDate(movieId, cinemaId, date);

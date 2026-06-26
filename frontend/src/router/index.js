@@ -13,6 +13,11 @@ const routes = [
     component: () => import('../views/Cinemas.vue'),
   },
   {
+    path: '/cinema/:id',
+    name: 'CinemaDetail',
+    component: () => import('../views/CinemaDetail.vue'),
+  },
+  {
     path: '/seat-select/:showtimeId',
     name: 'SeatSelect',
     component: () => import('../views/SeatSelect.vue'),
@@ -50,6 +55,11 @@ const routes = [
     name: 'Admin',
     component: () => import('../views/Admin.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/NotFound.vue'),
   },
 ]
 

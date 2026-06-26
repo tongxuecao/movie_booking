@@ -171,6 +171,7 @@ public class OrderStreamConsumer {
         order.setShowtimeId(showtimeId);
         order.setTotalAmount(amount);
         order.setStatus(OrderStatus.cancelled);
+        order.setRemark(reason);
         orderRepository.save(order);
         log.info("订单失败: orderNo={}, reason={}", orderNo, reason);
     }

@@ -1,13 +1,19 @@
 <script setup>
+import { useRouter } from 'vue-router'
+
 const props = defineProps({
   movie: { type: Object, required: true },
 })
 
-const emit = defineEmits(['preview'])
+const router = useRouter()
+
+function goDetail() {
+  router.push(`/movie/${props.movie.id}`)
+}
 </script>
 
 <template>
-  <div class="movie-card" @click="emit('preview', movie)">
+  <div class="movie-card" @click="goDetail" role="link" tabindex="0" @keydown.enter="goDetail">
     <div class="poster">
       <img
         v-if="movie.poster"
@@ -24,7 +30,7 @@ const emit = defineEmits(['preview'])
     <div class="info">
       <h3 class="title">{{ movie.title }}</h3>
       <p class="meta">{{ movie.director }} / {{ movie.genre }}</p>
-      <button class="buy-btn" @click.stop="emit('preview', movie)">查看详情</button>
+      <button class="buy-btn" @click.stop="goDetail">购票</button>
     </div>
   </div>
 </template>

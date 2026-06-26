@@ -28,7 +28,10 @@ public class MovieService {
     public PageResult<Map<String, Object>> getMovieList(String status, String keyword, int page, int size) {
         MovieStatus movieStatus = null;
         if (status != null && !status.isEmpty()) {
-            movieStatus = MovieStatus.valueOf(status);
+            try {
+                movieStatus = MovieStatus.valueOf(status);
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         Page<Movie> moviePage = movieRepository.findByStatusAndKeyword(
@@ -77,7 +80,13 @@ public class MovieService {
         if (req.getDescription() != null) movie.setDescription(req.getDescription());
         if (req.getPoster() != null) movie.setPoster(req.getPoster());
         if (req.getRating() != null) movie.setRating(req.getRating());
-        if (req.getStatus() != null) movie.setStatus(MovieStatus.valueOf(req.getStatus()));
+        if (req.getStatus() != null && !req.getStatus().isEmpty()) {
+            try {
+                movie.setStatus(MovieStatus.valueOf(req.getStatus()));
+            } catch (IllegalArgumentException e) {
+                throw BusinessException.badRequest("无效的电影状态: " + req.getStatus());
+            }
+        }
     }
 
     private Map<String, Object> toMovieBrief(Movie m) {
