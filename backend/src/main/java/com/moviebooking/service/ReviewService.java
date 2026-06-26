@@ -81,13 +81,13 @@ public class ReviewService {
             }
         }
 
-        return Map.of(
-                "canReview", userId != null,
-                "hasReviewed", hasReviewed,
-                "userRating", userRating,
-                "averageRating", movie.getRating() != null ? movie.getRating() : null,
-                "ratingCount", movie.getRatingCount() != null ? movie.getRatingCount() : 0
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("canReview", userId != null);
+        result.put("hasReviewed", hasReviewed);
+        result.put("userRating", userRating);
+        result.put("averageRating", movie.getRating());
+        result.put("ratingCount", movie.getRatingCount() != null ? movie.getRatingCount() : 0);
+        return result;
     }
 
     /**
