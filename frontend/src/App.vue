@@ -1,8 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth.js'
 
 const auth = useAuthStore()
+const route = useRoute()
+
+const isAdminPage = computed(() => route.path.startsWith('/admin') && auth.isAdmin)
 
 const avatarLetter = computed(() => {
   const name = auth.currentUsername || ''
@@ -12,13 +16,13 @@ const avatarLetter = computed(() => {
 
 <template>
   <div class="app">
-    <header class="app-header">
+    <!-- 管理员页面不显示顶部导航栏和页脚 -->
+    <header class="app-header" v-if="!isAdminPage">
       <div class="header-inner">
         <router-link to="/" class="logo">MovieTicket</router-link>
         <nav class="nav">
           <router-link to="/" class="nav-link" active-class="active">首页</router-link>
           <router-link to="/cinemas" class="nav-link" active-class="active">影院</router-link>
-          <router-link to="/admin" v-if="auth.isAdmin" class="nav-link" active-class="active">管理</router-link>
         </nav>
         <div class="user-area">
           <template v-if="auth.isLoggedIn">
@@ -42,7 +46,7 @@ const avatarLetter = computed(() => {
       <router-view />
     </main>
 
-    <footer class="app-footer">
+    <footer class="app-footer" v-if="!isAdminPage">
       <div class="footer-inner">
         <div class="footer-section">
           <h4>MovieTicket</h4>

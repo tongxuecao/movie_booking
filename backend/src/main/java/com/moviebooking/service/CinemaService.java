@@ -89,4 +89,18 @@ public class CinemaService {
         map.put("phone", c.getPhone());
         return map;
     }
+
+    public List<Map<String, Object>> getCinemaHalls(Long cinemaId) {
+        List<Hall> halls = hallRepository.findByCinemaId(cinemaId);
+        return halls.stream().map(h -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", h.getId());
+            map.put("name", h.getName());
+            map.put("seatRows", h.getSeatRows());
+            map.put("seatCols", h.getSeatCols());
+            map.put("hallType", h.getHallType().name());
+            map.put("seatCount", h.getSeatRows() * h.getSeatCols());
+            return map;
+        }).toList();
+    }
 }

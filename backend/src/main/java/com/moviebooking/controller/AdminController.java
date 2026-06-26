@@ -65,6 +65,18 @@ public class AdminController {
         return ApiResult.success("添加成功", cinemaService.createCinema(request));
     }
 
+    @GetMapping("/cinema/list")
+    public ApiResult<?> getAdminCinemaList(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResult.success(cinemaService.getCinemaList(page, size));
+    }
+
+    @GetMapping("/cinema/{id}/halls")
+    public ApiResult<?> getCinemaHalls(@PathVariable Long id) {
+        return ApiResult.success(cinemaService.getCinemaHalls(id));
+    }
+
     @PostMapping("/hall")
     public ApiResult<?> createHall(@RequestBody HallRequest request) {
         return ApiResult.success("添加成功", cinemaService.createHall(request));
@@ -80,6 +92,21 @@ public class AdminController {
     @PostMapping("/showtime/batch")
     public ApiResult<?> batchCreateShowtime(@RequestBody BatchShowtimeRequest request) {
         return ApiResult.success("批量添加成功", showtimeService.batchCreateShowtime(request));
+    }
+
+    @GetMapping("/showtime/list")
+    public ApiResult<?> getAdminShowtimeList(
+            @RequestParam(required = false) Long movieId,
+            @RequestParam(required = false) String date,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResult.success(showtimeService.getAdminShowtimeList(movieId, date, page, size));
+    }
+
+    @DeleteMapping("/showtime/{id}")
+    public ApiResult<?> deleteShowtime(@PathVariable Long id) {
+        showtimeService.deleteShowtime(id);
+        return ApiResult.success("删除成功");
     }
 
     // --- 订单管理 ---

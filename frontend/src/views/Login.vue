@@ -21,8 +21,17 @@ async function handleLogin() {
   try {
     await auth.login(username.value, password.value)
     ElMessage.success('登录成功')
-    // 获取重定向路径，如果没有则跳转到首页
-    const redirect = route.query.redirect || '/'
+
+    // 确定跳转目标
+    let redirect = route.query.redirect
+    if (auth.isAdmin) {
+      // 管理员默认跳转到管理后台
+      redirect = redirect || '/admin'
+    } else {
+      // 普通用户跳转到首页或指定页面
+      redirect = redirect || '/'
+    }
+
     // 使用replace而不是push，避免登录页留在历史记录中
     router.replace(redirect)
   } catch (e) {

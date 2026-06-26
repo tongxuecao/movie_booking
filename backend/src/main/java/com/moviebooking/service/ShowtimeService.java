@@ -1,11 +1,15 @@
 package com.moviebooking.service;
 
 import com.moviebooking.common.BusinessException;
+import com.moviebooking.common.PageResult;
 import com.moviebooking.dto.ShowtimeRequest;
 import com.moviebooking.dto.BatchShowtimeRequest;
 import com.moviebooking.entity.*;
 import com.moviebooking.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -172,5 +176,44 @@ public class ShowtimeService {
             results.add(Map.of("id", showtime.getId(), "showTime", time));
         }
         return results;
+    }
+
+    public PageResult<Map<String, Object>> getAdminShowtimeList(Long movieId, String dateStr, int page, int size) {
+        LocalDate date = (dateStr != null && !dateStr.isEmpty()) ? LocalDate.parse(dateStr) : null;
+        Page<Showtime> showtimePage = showtimeRepository.findAdminShowtimes(
+                movieId, date, PageRequest.of(page - 1, size));
+
+        List<Map<String, Object>> list = showtimePage.getContent().stream().map(s -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", s.getId());
+            map.put("movieId", s.getMovieId());
+
+            Movie movie = movieRepository.findById(s.getMovieId()).orElse(null);
+            map.put("movieTitle", movie != null ? movie.getTitle() : "未知电影");
+
+            Hall hall = hallRepository.findById(s.getHallId()).orElse(null);
+            if (hall != null) {
+                map.put("hallId", hall.getId());
+                map.put("hallName", hall.getName());
+                Cinema cinema = cinemaRepository.findById(hall.getCinemaId()).orElse(null);
+                map.put("cinemaName", cinema != null ? cinema.getName() : "未知影院");
+            }
+
+            map.put("showDate", s.getShowDate());
+            map.put("showTime", s.getShowTime());
+            map.put("price", s.getPrice());
+            map.put("status", s.getStatus());
+            return map;
+        }).toList();
+
+        return new PageResult<>(list, showtimePage.getTotalElements(), page, size);
+    }
+
+    @Transactional
+    public void deleteShowtime(Long id) {
+        if (!showtimeRepository.existsById(id)) {
+            throw BusinessException.notFound("排片不存在");
+        }
+        showtimeRepository.deleteById(id);
     }
 }

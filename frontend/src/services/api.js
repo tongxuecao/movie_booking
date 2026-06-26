@@ -128,6 +128,12 @@ export function apiCreateMovie(data) { return post('/admin/movie', data) }
 export function apiUpdateMovie(id, data) { return put(`/admin/movie/${id}`, data) }
 export function apiDeleteMovie(id) { return del(`/admin/movie/${id}`) }
 export function apiCreateShowtime(data) { return post('/admin/showtime', data) }
+export function apiGetAdminShowtimes(params) { return get('/admin/showtime/list', params) }
+export function apiDeleteShowtime(id) { return del(`/admin/showtime/${id}`) }
+export function apiGetAdminCinemas(params) { return get('/admin/cinema/list', params) }
+export function apiGetCinemaHalls(cinemaId) { return get(`/admin/cinema/${cinemaId}/halls`) }
+export function apiCreateCinema(data) { return post('/admin/cinema', data) }
+export function apiCreateHall(data) { return post('/admin/hall', data) }
 export function apiGetAdminOrders(params) { return get('/admin/order/list', params) }
 export function apiGetStatistics() { return get('/admin/statistics') }
 export { upload as apiUploadImage }
