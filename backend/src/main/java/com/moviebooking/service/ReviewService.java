@@ -6,9 +6,7 @@ import com.moviebooking.dto.ReviewRequest;
 import com.moviebooking.entity.Movie;
 import com.moviebooking.entity.Review;
 import com.moviebooking.repository.MovieRepository;
-import com.moviebooking.repository.OrderRepository;
 import com.moviebooking.repository.ReviewRepository;
-import com.moviebooking.entity.enums.OrderStatus;
 import com.moviebooking.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,25 +25,17 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
-    private final OrderRepository orderRepository;
     private final MovieRepository movieRepository;
 
     @Autowired
     public ReviewService(ReviewRepository reviewRepository, UserRepository userRepository,
-                        OrderRepository orderRepository, MovieRepository movieRepository) {
+                        MovieRepository movieRepository) {
         this.reviewRepository = reviewRepository;
         this.userRepository = userRepository;
-        this.orderRepository = orderRepository;
         this.movieRepository = movieRepository;
     }
 
     public Map<String, Object> createReview(Long userId, ReviewRequest request) {
-        // 验证用户是否看过这部电影（使用原生SQL，避免JPQL枚举问题）
-        boolean hasWatched = orderRepository.existsByUserIdAndMovieIdAndPaidNative(userId, request.getMovieId()) > 0;
-        if (!hasWatched) {
-            throw new BusinessException("只有看过这部电影的用户才能评分");
-        }
-
         // 检查是否已评分
         Optional<Review> existingReview = reviewRepository.findByUserIdAndMovieId(userId, request.getMovieId());
 
@@ -83,15 +73,10 @@ public class ReviewService {
         Movie movie = movieRepository.findById(movieId)
                 .orElseThrow(() -> new BusinessException("电影不存在"));
 
-        boolean canReview = false;
         boolean hasReviewed = false;
         Integer userRating = null;
 
         if (userId != null) {
-            // 检查用户是否看过这部电影（使用原生SQL，避免JPQL枚举问题）
-            canReview = orderRepository.existsByUserIdAndMovieIdAndPaidNative(userId, movieId) > 0;
-            log.info("[ReviewStatus] userId={}, movieId={}, canReview={}", userId, movieId, canReview);
-
             // 检查用户是否已评分
             Optional<Review> existingReview = reviewRepository.findByUserIdAndMovieId(userId, movieId);
             if (existingReview.isPresent()) {
@@ -101,7 +86,7 @@ public class ReviewService {
         }
 
         return Map.of(
-                "canReview", canReview,
+                "canReview", userId != null,
                 "hasReviewed", hasReviewed,
                 "userRating", userRating,
                 "averageRating", movie.getRating() != null ? movie.getRating() : null,
@@ -118,7 +103,7 @@ public class ReviewService {
             Movie movie = movieRepository.findById(movieId).orElse(null);
             if (movie != null) {
                 movie.setRating(new java.math.BigDecimal(result[0].toString()));
-                movie.setRatingCount((int) result[1]);
+                movie.setRatingCount(((Long) result[1]).intValue());
                 movieRepository.save(movie);
             }
         }
