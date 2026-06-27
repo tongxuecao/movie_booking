@@ -182,7 +182,7 @@ function initWishChart() {
 .stat-num {
   font-size: 28px;
   font-weight: 700;
-  color: #1976d2;
+  color: #d32f2f;
 }
 
 .stat-label {

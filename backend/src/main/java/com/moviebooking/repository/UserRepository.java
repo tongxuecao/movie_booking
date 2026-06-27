@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.util.Optional;
 
@@ -22,4 +24,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Transactional
     @Query("UPDATE User u SET u.walletBalance = u.walletBalance + :amount, u.version = u.version + 1 WHERE u.id = :userId")
     int addBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
+
+    @Query("SELECT u FROM User u WHERE (:keyword IS NULL OR u.username LIKE %:keyword% OR u.phone LIKE %:keyword%)")
+    Page<User> searchUsers(@Param("keyword") String keyword, Pageable pageable);
 }

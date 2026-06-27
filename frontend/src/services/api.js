@@ -136,4 +136,9 @@ export function apiCreateCinema(data) { return post('/admin/cinema', data) }
 export function apiCreateHall(data) { return post('/admin/hall', data) }
 export function apiGetAdminOrders(params) { return get('/admin/order/list', params) }
 export function apiGetStatistics() { return get('/admin/statistics') }
+// ==================== 管理员 - 用户管理 ====================
+export function apiGetAdminUsers(params) { return get('/admin/user/list', params) }
+export function apiGetAdminUser(id) { return get(`/admin/user/${id}`) }
+export function apiUpdateAdminUser(id, data) { return put(`/admin/user/${id}`, data) }
+
 export { upload as apiUploadImage }

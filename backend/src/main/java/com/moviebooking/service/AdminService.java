@@ -1,10 +1,16 @@
 package com.moviebooking.service;
 
+import com.moviebooking.common.BusinessException;
+import com.moviebooking.dto.UserUpdateRequest;
+import com.moviebooking.entity.User;
 import com.moviebooking.entity.enums.MovieStatus;
 import com.moviebooking.entity.enums.OrderStatus;
+import com.moviebooking.entity.enums.UserRole;
 import com.moviebooking.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -101,5 +107,89 @@ public class AdminService {
         result.put("topMoviesByRevenue", topMoviesByRevenue);
         result.put("topMoviesByWishCount", topMoviesByWishCount);
         return result;
+    }
+
+    // ==================== 用户管理 ====================
+
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    public Map<String, Object> getUserList(String keyword, int page, int size) {
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        Page<User> userPage = userRepository.searchUsers(kw, PageRequest.of(page - 1, size));
+
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (User u : userPage.getContent()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", u.getId());
+            item.put("username", u.getUsername());
+            item.put("phone", maskPhone(u.getPhone()));
+            item.put("role", u.getRole().name());
+            item.put("walletBalance", u.getWalletBalance());
+            item.put("avatar", u.getAvatar());
+            item.put("createdAt", u.getCreatedAt());
+            list.add(item);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", list);
+        result.put("total", userPage.getTotalElements());
+        result.put("page", page);
+        result.put("size", size);
+        return result;
+    }
+
+    public Map<String, Object> getUserDetail(Long userId) {
+        User u = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("id", u.getId());
+        detail.put("username", u.getUsername());
+        detail.put("phone", u.getPhone());
+        detail.put("role", u.getRole().name());
+        detail.put("walletBalance", u.getWalletBalance());
+        detail.put("avatar", u.getAvatar());
+        detail.put("version", u.getVersion());
+        detail.put("createdAt", u.getCreatedAt());
+        detail.put("updatedAt", u.getUpdatedAt());
+        return detail;
+    }
+
+    public void updateUser(Long userId, UserUpdateRequest req) {
+        User u = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+
+        if (req.getUsername() != null && !req.getUsername().isBlank()) {
+            String newName = req.getUsername().trim();
+            if (!newName.equals(u.getUsername()) && userRepository.existsByUsername(newName)) {
+                throw BusinessException.badRequest("用户名已被占用");
+            }
+            u.setUsername(newName);
+        }
+        if (req.getPhone() != null) {
+            u.setPhone(req.getPhone().trim());
+        }
+        if (req.getRole() != null) {
+            try {
+                u.setRole(UserRole.valueOf(req.getRole()));
+            } catch (IllegalArgumentException e) {
+                throw BusinessException.badRequest("无效的角色: " + req.getRole());
+            }
+        }
+        if (req.getWalletBalance() != null) {
+            if (req.getWalletBalance().compareTo(BigDecimal.ZERO) < 0) {
+                throw BusinessException.badRequest("余额不能为负数");
+            }
+            u.setWalletBalance(req.getWalletBalance());
+        }
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            u.setPassword(passwordEncoder.encode(req.getPassword()));
+        }
+        userRepository.save(u);
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 }

@@ -198,7 +198,7 @@ async function handleHallSave() {
 
 .btn-add {
   padding: 8px 20px;
-  background: #1976d2;
+  background: #d32f2f;
   color: #fff;
   font-size: 13px;
   border: none;
@@ -208,7 +208,7 @@ async function handleHallSave() {
 }
 
 .btn-add:hover {
-  background: #1565c0;
+  background: #b71c1c;
 }
 
 .table-wrap {
@@ -356,7 +356,7 @@ td {
 
 .form-group input:focus,
 .form-group select:focus {
-  border-color: #1976d2;
+  border-color: #d32f2f;
 }
 
 .flex-1 {
@@ -387,7 +387,7 @@ td {
 
 .btn-save {
   padding: 9px 22px;
-  background: #1976d2;
+  background: #d32f2f;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -397,7 +397,7 @@ td {
 }
 
 .btn-save:hover {
-  background: #1565c0;
+  background: #b71c1c;
 }
 
 .fade-enter-active,

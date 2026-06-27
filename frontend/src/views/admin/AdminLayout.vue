@@ -6,6 +6,7 @@ import AdminMovies from './AdminMovies.vue'
 import AdminShowtimes from './AdminShowtimes.vue'
 import AdminCinemas from './AdminCinemas.vue'
 import AdminOrders from './AdminOrders.vue'
+import AdminUsers from './AdminUsers.vue'
 import AdminStatistics from './AdminStatistics.vue'
 
 const router = useRouter()
@@ -17,6 +18,7 @@ const menuComponents = {
   movies: AdminMovies,
   showtimes: AdminShowtimes,
   orders: AdminOrders,
+  users: AdminUsers,
   statistics: AdminStatistics,
   cinemas: AdminCinemas,
 }
@@ -55,6 +57,9 @@ function switchMenu(menu) {
         </div>
         <div class="menu-item" :class="{ active: activeMenu === 'orders' }" @click="switchMenu('orders')">
           <span class="menu-icon">📋</span><span class="menu-text">订单管理</span>
+        </div>
+        <div class="menu-item" :class="{ active: activeMenu === 'users' }" @click="switchMenu('users')">
+          <span class="menu-icon">👥</span><span class="menu-text">用户管理</span>
         </div>
         <div class="menu-item" :class="{ active: activeMenu === 'statistics' }" @click="switchMenu('statistics')">
           <span class="menu-icon">📊</span><span class="menu-text">数据统计</span>
@@ -117,7 +122,7 @@ function switchMenu(menu) {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #1976d2;
+  background: #d32f2f;
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -163,8 +168,8 @@ function switchMenu(menu) {
 }
 
 .menu-item.active {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: #ffebee;
+  color: #d32f2f;
   font-weight: 600;
 }
 
@@ -221,5 +226,17 @@ function switchMenu(menu) {
   .admin-content {
     margin-left: 60px;
   }
+}
+</style>
+
+<style>
+/* 后台管理全局红色主题 — Element Plus 变量覆盖 */
+.admin-layout {
+  --el-color-primary: #d32f2f;
+  --el-color-primary-light-3: #e57373;
+  --el-color-primary-light-5: #ffcdd2;
+  --el-color-primary-light-7: #ffebee;
+  --el-color-primary-light-9: #fff5f5;
+  --el-color-primary-dark-2: #b71c1c;
 }
 </style>

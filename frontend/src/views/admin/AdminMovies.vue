@@ -29,23 +29,27 @@ const GENRE_OPTIONS = [
 
 const showMovieForm = ref(false)
 const editingMovieId = ref(null)
-const movieForm = reactive({ title: '', poster: '', genre: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
+const selectedGenres = ref([])
+const movieForm = reactive({ title: '', poster: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
 
 function openMovieAdd() {
   editingMovieId.value = null
-  Object.assign(movieForm, { title: '', poster: '', genre: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
+  selectedGenres.value = []
+  Object.assign(movieForm, { title: '', poster: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
   showMovieForm.value = true
 }
 function openMovieEdit(m) {
   editingMovieId.value = m.id
-  Object.assign(movieForm, { title: m.title, poster: m.poster, genre: m.genre, duration: m.duration, director: m.director, actors: m.actors, description: m.description, releaseDate: m.releaseDate, status: m.status })
+  selectedGenres.value = m.genre ? m.genre.split(' / ').filter(Boolean) : []
+  Object.assign(movieForm, { title: m.title, poster: m.poster, duration: m.duration, director: m.director, actors: m.actors, description: m.description, releaseDate: m.releaseDate, status: m.status })
   showMovieForm.value = true
 }
 function closeMovieForm() { showMovieForm.value = false }
 
 async function handleMovieSave() {
   if (!movieForm.title.trim()) { ElMessage.warning('请输入电影名称'); return }
-  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120 }
+  if (selectedGenres.value.length === 0) { ElMessage.warning('请选择电影类型'); return }
+  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120, genre: selectedGenres.value.join(' / ') }
   try {
     if (editingMovieId.value) {
       await apiUpdateMovie(editingMovieId.value, data)
@@ -132,7 +136,7 @@ function beforePosterUpload(file) {
             </div>
             <div class="form-row">
               <div class="form-group flex-1"><label>导演</label><input v-model="movieForm.director" placeholder="请输入导演" /></div>
-              <div class="form-group flex-1"><label>类型</label><select v-model="movieForm.genre"><option value="">请选择类型</option><option v-for="g in GENRE_OPTIONS" :key="g" :value="g">{{ g }}</option></select></div>
+              <div class="form-group flex-1"><label>类型</label><el-select v-model="selectedGenres" multiple placeholder="请选择类型" style="width:100%"><el-option v-for="g in GENRE_OPTIONS" :key="g" :label="g" :value="g" /></el-select></div>
             </div>
             <div class="form-row">
               <div class="form-group flex-1"><label>片长（分钟）</label><input v-model.number="movieForm.duration" type="number" min="1" placeholder="120" /></div>
@@ -198,7 +202,7 @@ function beforePosterUpload(file) {
 
 .btn-add {
   padding: 8px 20px;
-  background: #1976d2;
+  background: #d32f2f;
   color: #fff;
   font-size: 13px;
   border: none;
@@ -208,7 +212,7 @@ function beforePosterUpload(file) {
 }
 
 .btn-add:hover {
-  background: #1565c0;
+  background: #b71c1c;
 }
 
 .table-wrap {
@@ -266,8 +270,8 @@ td {
 }
 
 .status-badge.upcoming {
-  background: #e3f2fd;
-  color: #2196f3;
+  background: #ffebee;
+  color: #d32f2f;
 }
 
 .btn-edit {
@@ -419,8 +423,8 @@ td {
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: #1976d2;
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  border-color: #d32f2f;
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.1);
 }
 
 .form-group input::placeholder,
@@ -465,8 +469,8 @@ td {
 }
 
 .upload-trigger:hover {
-  border-color: #1976d2;
-  background: #f0f6ff;
+  border-color: #d32f2f;
+  background: #fef0f0;
 }
 
 .upload-icon {
@@ -517,7 +521,7 @@ td {
 
 .btn-save {
   padding: 10px 28px;
-  background: #1976d2;
+  background: #d32f2f;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -528,8 +532,8 @@ td {
 }
 
 .btn-save:hover {
-  background: #1565c0;
-  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+  background: #b71c1c;
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.3);
 }
 
 /* 移动端适配 */

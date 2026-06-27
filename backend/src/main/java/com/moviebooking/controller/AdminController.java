@@ -124,6 +124,27 @@ public class AdminController {
         return ApiResult.success(orderService.getAdminOrderDetail(orderNo));
     }
 
+    // --- 用户管理 ---
+
+    @GetMapping("/user/list")
+    public ApiResult<?> getUserList(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResult.success(adminService.getUserList(keyword, page, size));
+    }
+
+    @GetMapping("/user/{id}")
+    public ApiResult<?> getUserDetail(@PathVariable Long id) {
+        return ApiResult.success(adminService.getUserDetail(id));
+    }
+
+    @PutMapping("/user/{id}")
+    public ApiResult<?> updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest request) {
+        adminService.updateUser(id, request);
+        return ApiResult.success("修改成功");
+    }
+
     // --- 数据统计 ---
 
     @GetMapping("/statistics")
