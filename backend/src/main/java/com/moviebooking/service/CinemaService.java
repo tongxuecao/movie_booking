@@ -90,6 +90,48 @@ public class CinemaService {
         return map;
     }
 
+    public void updateCinema(Long id, CinemaRequest request) {
+        Cinema cinema = cinemaRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("影院不存在"));
+        if (request.getName() != null) cinema.setName(request.getName());
+        if (request.getAddress() != null) cinema.setAddress(request.getAddress());
+        if (request.getPhone() != null) cinema.setPhone(request.getPhone());
+        if (request.getBusinessHours() != null) cinema.setBusinessHours(request.getBusinessHours());
+        cinemaRepository.save(cinema);
+    }
+
+    @Transactional
+    public void deleteCinema(Long id) {
+        if (!cinemaRepository.existsById(id)) {
+            throw BusinessException.notFound("影院不存在");
+        }
+        cinemaRepository.deleteById(id);
+    }
+
+    public void updateHall(Long id, HallRequest request) {
+        Hall hall = hallRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("影厅不存在"));
+        if (request.getName() != null) hall.setName(request.getName());
+        if (request.getSeatRows() != null) hall.setSeatRows(request.getSeatRows());
+        if (request.getSeatCols() != null) hall.setSeatCols(request.getSeatCols());
+        if (request.getHallType() != null) {
+            try {
+                hall.setHallType(HallType.valueOf(request.getHallType()));
+            } catch (IllegalArgumentException e) {
+                throw BusinessException.badRequest("无效的影厅类型: " + request.getHallType());
+            }
+        }
+        hallRepository.save(hall);
+    }
+
+    @Transactional
+    public void deleteHall(Long id) {
+        if (!hallRepository.existsById(id)) {
+            throw BusinessException.notFound("影厅不存在");
+        }
+        hallRepository.deleteById(id);
+    }
+
     public List<Map<String, Object>> getCinemaHalls(Long cinemaId) {
         List<Hall> halls = hallRepository.findByCinemaId(cinemaId);
         return halls.stream().map(h -> {

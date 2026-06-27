@@ -133,6 +133,10 @@ export function apiDeleteShowtime(id) { return del(`/admin/showtime/${id}`) }
 export function apiGetAdminCinemas(params) { return get('/admin/cinema/list', params) }
 export function apiGetCinemaHalls(cinemaId) { return get(`/admin/cinema/${cinemaId}/halls`) }
 export function apiCreateCinema(data) { return post('/admin/cinema', data) }
+export function apiUpdateCinema(id, data) { return put(`/admin/cinema/${id}`, data) }
+export function apiDeleteCinema(id) { return del(`/admin/cinema/${id}`) }
+export function apiUpdateHall(id, data) { return put(`/admin/hall/${id}`, data) }
+export function apiDeleteHall(id) { return del(`/admin/hall/${id}`) }
 export function apiCreateHall(data) { return post('/admin/hall', data) }
 export function apiGetAdminOrders(params) { return get('/admin/order/list', params) }
 export function apiGetStatistics() { return get('/admin/statistics') }

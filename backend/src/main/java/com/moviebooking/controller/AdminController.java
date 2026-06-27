@@ -72,9 +72,33 @@ public class AdminController {
         return ApiResult.success(cinemaService.getCinemaList(page, size));
     }
 
+    @PutMapping("/cinema/{id}")
+    public ApiResult<?> updateCinema(@PathVariable Long id, @RequestBody CinemaRequest request) {
+        cinemaService.updateCinema(id, request);
+        return ApiResult.success("修改成功");
+    }
+
+    @DeleteMapping("/cinema/{id}")
+    public ApiResult<?> deleteCinema(@PathVariable Long id) {
+        cinemaService.deleteCinema(id);
+        return ApiResult.success("删除成功");
+    }
+
     @GetMapping("/cinema/{id}/halls")
     public ApiResult<?> getCinemaHalls(@PathVariable Long id) {
         return ApiResult.success(cinemaService.getCinemaHalls(id));
+    }
+
+    @PutMapping("/hall/{id}")
+    public ApiResult<?> updateHall(@PathVariable Long id, @RequestBody HallRequest request) {
+        cinemaService.updateHall(id, request);
+        return ApiResult.success("修改成功");
+    }
+
+    @DeleteMapping("/hall/{id}")
+    public ApiResult<?> deleteHall(@PathVariable Long id) {
+        cinemaService.deleteHall(id);
+        return ApiResult.success("删除成功");
     }
 
     @PostMapping("/hall")

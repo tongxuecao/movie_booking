@@ -1,15 +1,17 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { apiGetAdminCinemas, apiGetCinemaHalls, apiCreateCinema, apiCreateHall } from '../../services/api.js'
-import { ElMessage } from 'element-plus'
+import { apiGetAdminCinemas, apiGetCinemaHalls, apiCreateCinema, apiCreateHall, apiDeleteCinema, apiDeleteHall, apiUpdateCinema, apiUpdateHall } from '../../services/api.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const adminCinemas = ref([])
 const cinemasLoading = ref(false)
 const cinemaPage = ref(1)
 const cinemaTotal = ref(0)
 const CINEMA_PAGE_SIZE = 10
+const editingCinemaId = ref(null)
 const showCinemaForm = ref(false)
 const cinemaForm = reactive({ name: '', address: '', phone: '', businessHours: '' })
+const editingHallId = ref(null)
 const showHallForm = ref(false)
 const selectedCinemaId = ref(null)
 const hallForm = reactive({ cinemaId: '', name: '', seatRows: 10, seatCols: 10, hallType: 'normal' })
@@ -29,18 +31,30 @@ async function loadCinemas() {
 }
 
 function openCinemaAdd() {
+  editingCinemaId.value = null
   Object.assign(cinemaForm, { name: '', address: '', phone: '', businessHours: '' })
+  showCinemaForm.value = true
+}
+
+function openCinemaEdit(cinema) {
+  editingCinemaId.value = cinema.id
+  Object.assign(cinemaForm, { name: cinema.name, address: cinema.address || '', phone: cinema.phone || '', businessHours: cinema.businessHours || '' })
   showCinemaForm.value = true
 }
 
 async function handleCinemaSave() {
   if (!cinemaForm.name.trim()) { ElMessage.warning('请输入影院名称'); return }
   try {
-    await apiCreateCinema(cinemaForm)
-    ElMessage.success('添加成功')
+    if (editingCinemaId.value) {
+      await apiUpdateCinema(editingCinemaId.value, cinemaForm)
+      ElMessage.success('修改成功')
+    } else {
+      await apiCreateCinema(cinemaForm)
+      ElMessage.success('添加成功')
+    }
     showCinemaForm.value = false
     loadCinemas()
-  } catch (e) { ElMessage.error(e.message || '添加失败') }
+  } catch (e) { ElMessage.error(e.message || '操作失败') }
 }
 
 async function openHalls(cinema) {
@@ -54,19 +68,50 @@ async function openHalls(cinema) {
 }
 
 function openHallAdd() {
+  editingHallId.value = null
   Object.assign(hallForm, { cinemaId: selectedCinemaId.value, name: '', seatRows: 10, seatCols: 10, hallType: 'normal' })
+  showHallForm.value = true
+}
+
+function openHallEdit(hall) {
+  editingHallId.value = hall.id
+  Object.assign(hallForm, { cinemaId: hall.cinemaId || selectedCinemaId.value, name: hall.name, seatRows: hall.seatRows, seatCols: hall.seatCols, hallType: hall.hallType })
   showHallForm.value = true
 }
 
 async function handleHallSave() {
   if (!hallForm.name.trim()) { ElMessage.warning('请输入影厅名称'); return }
   try {
-    await apiCreateHall(hallForm)
-    ElMessage.success('添加成功')
+    if (editingHallId.value) {
+      await apiUpdateHall(editingHallId.value, hallForm)
+      ElMessage.success('修改成功')
+    } else {
+      await apiCreateHall(hallForm)
+      ElMessage.success('添加成功')
+    }
     showHallForm.value = false
     const data = await apiGetCinemaHalls(selectedCinemaId.value)
     cinemaHalls.value = data || []
-  } catch (e) { ElMessage.error(e.message || '添加失败') }
+  } catch (e) { ElMessage.error(e.message || '操作失败') }
+}
+
+async function handleHallDelete(hall) {
+  try {
+    await ElMessageBox.confirm(`确定要删除影厅「${hall.name}」吗？将级联删除其下所有座位、排片及订单数据。`, '确认删除', { type: 'warning', confirmButtonText: '确认删除' })
+    await apiDeleteHall(hall.id)
+    ElMessage.success('删除成功')
+    const data = await apiGetCinemaHalls(selectedCinemaId.value)
+    cinemaHalls.value = data || []
+  } catch {}
+}
+
+async function handleCinemaDelete(cinema) {
+  try {
+    await ElMessageBox.confirm(`确定要删除影院「${cinema.name}」吗？将级联删除其下所有影厅、座位、排片及订单数据，不可恢复。`, '确认删除', { type: 'warning', confirmButtonText: '确认删除' })
+    await apiDeleteCinema(cinema.id)
+    ElMessage.success('删除成功')
+    loadCinemas()
+  } catch {}
 }
 </script>
 
@@ -87,7 +132,7 @@ async function handleHallSave() {
             <td class="title-cell">{{ c.name }}</td>
             <td>{{ c.address }}</td>
             <td>{{ c.phone }}</td>
-            <td><button class="btn-edit" @click="openHalls(c)">查看影厅</button></td>
+            <td><button class="btn-edit" @click="openCinemaEdit(c)">编辑</button><button class="btn-edit" @click="openHalls(c)">影厅管理</button><button class="btn-del" @click="handleCinemaDelete(c)">删除</button></td>
           </tr>
         </tbody>
       </table>
@@ -101,7 +146,7 @@ async function handleHallSave() {
     <Teleport to="body"><Transition name="fade">
       <div v-if="showCinemaForm" class="modal-overlay" @click.self="showCinemaForm = false">
         <div class="modal">
-          <div class="modal-head"><h3>添加影院</h3><button class="btn-close" @click="showCinemaForm = false">&times;</button></div>
+          <div class="modal-head"><h3>{{ editingCinemaId ? '编辑影院' : '添加影院' }}</h3><button class="btn-close" @click="showCinemaForm = false">&times;</button></div>
           <div class="modal-body">
             <div class="form-group"><label>影院名称*</label><input v-model="cinemaForm.name" /></div>
             <div class="form-group"><label>地址</label><input v-model="cinemaForm.address" /></div>
@@ -110,7 +155,7 @@ async function handleHallSave() {
               <div class="form-group flex-1"><label>营业时间</label><input v-model="cinemaForm.businessHours" placeholder="09:00-22:00" /></div>
             </div>
           </div>
-          <div class="modal-foot"><button class="btn-cancel" @click="showCinemaForm = false">取消</button><button class="btn-save" @click="handleCinemaSave">添加</button></div>
+          <div class="modal-foot"><button class="btn-cancel" @click="showCinemaForm = false">取消</button><button class="btn-save" @click="handleCinemaSave">{{ editingCinemaId ? '保存' : '添加' }}</button></div>
         </div>
       </div>
     </Transition></Teleport>
@@ -126,12 +171,13 @@ async function handleHallSave() {
             </div>
             <div class="table-wrap" v-if="cinemaHalls.length">
               <table>
-                <thead><tr><th>影厅名称</th><th>座位数</th><th>类型</th></tr></thead>
+                <thead><tr><th>影厅名称</th><th>座位数</th><th>类型</th><th>操作</th></tr></thead>
                 <tbody>
                   <tr v-for="h in cinemaHalls" :key="h.id">
                     <td>{{ h.name }}</td>
                     <td>{{ h.seatCount }}</td>
                     <td>{{ h.hallType }}</td>
+                    <td><button class="btn-edit" @click="openHallEdit(h)">编辑</button><button class="btn-del" @click="handleHallDelete(h)">删除</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -147,7 +193,7 @@ async function handleHallSave() {
     <Teleport to="body"><Transition name="fade">
       <div v-if="showHallForm" class="modal-overlay" @click.self="showHallForm = false">
         <div class="modal">
-          <div class="modal-head"><h3>添加影厅</h3><button class="btn-close" @click="showHallForm = false">&times;</button></div>
+          <div class="modal-head"><h3>{{ editingHallId ? '编辑影厅' : '添加影厅' }}</h3><button class="btn-close" @click="showHallForm = false">&times;</button></div>
           <div class="modal-body">
             <div class="form-group"><label>影厅名称*</label><input v-model="hallForm.name" /></div>
             <div class="form-row">
@@ -163,7 +209,7 @@ async function handleHallSave() {
               </select>
             </div>
           </div>
-          <div class="modal-foot"><button class="btn-cancel" @click="showHallForm = false">取消</button><button class="btn-save" @click="handleHallSave">添加</button></div>
+          <div class="modal-foot"><button class="btn-cancel" @click="showHallForm = false">取消</button><button class="btn-save" @click="handleHallSave">{{ editingHallId ? '保存' : '添加' }}</button></div>
         </div>
       </div>
     </Transition></Teleport>
@@ -255,6 +301,21 @@ td {
 
 .btn-edit:hover {
   background: #bbdefb;
+}
+
+.btn-del {
+  padding: 4px 14px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  margin-left: 6px;
+  background: #fce4ec;
+  color: #e53935;
+  cursor: pointer;
+}
+
+.btn-del:hover {
+  background: #f8bbd0;
 }
 
 .empty {
