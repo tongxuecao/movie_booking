@@ -38,6 +38,8 @@ CREATE DATABASE IF NOT EXISTS movie_ticket DEFAULT CHARSET utf8mb4;
 ```bash
 mysql -u root -p movie_ticket < CDM_PDM/init.sql
 ```
+先创建一个名为movie_ticket得数据库，将CDM_PDM/init.sql文件中的SQL代码复制，
+在MySQLmovie_ticket数据库中新建查询表,粘贴运行
 
 > 该 SQL 文件包含完整的表结构 + 初始数据（影院、影厅、座位、电影、管理员账号等）。后端 JPA 设为了 `ddl-auto: update` 会自动建表，但初始数据必须手动导入。
 
@@ -93,7 +95,7 @@ npx vite --host      # 启动并暴露局域网（手机可测试）
 
 | 角色 | 用户名 | 密码 |
 |------|--------|------|
-| 管理员 | `admin` | `admin123` |
+| 管理员 | `admin` | `123456` |
 | 普通用户 | 注册即用 | —（注册送 1000 元余额） |
 
 ## 项目结构

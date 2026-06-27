@@ -145,6 +145,12 @@ public class AdminController {
         return ApiResult.success("修改成功");
     }
 
+    @PutMapping("/user/{id}/status")
+    public ApiResult<?> toggleUserStatus(@PathVariable Long id) {
+        adminService.toggleUserStatus(id);
+        return ApiResult.success("操作成功");
+    }
+
     // --- 数据统计 ---
 
     @GetMapping("/statistics")

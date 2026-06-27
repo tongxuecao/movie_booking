@@ -99,6 +99,7 @@ public class MovieService {
         map.put("rating", m.getRating());
         map.put("status", m.getStatus().name());
         map.put("genre", m.getGenre());
+        map.put("director", m.getDirector());
         return map;
     }
 

@@ -1,6 +1,7 @@
 package com.moviebooking.entity;
 
 import com.moviebooking.entity.enums.UserRole;
+import com.moviebooking.entity.enums.UserStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +31,10 @@ public class User {
 
     @Version
     private Integer version = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private UserStatus status = UserStatus.active;
 
     @Column(length = 255)
     private String avatar;
@@ -65,6 +70,9 @@ public class User {
 
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
+
+    public UserStatus getStatus() { return status; }
+    public void setStatus(UserStatus status) { this.status = status; }
 
     public BigDecimal getWalletBalance() { return walletBalance; }
     public void setWalletBalance(BigDecimal walletBalance) { this.walletBalance = walletBalance; }

@@ -6,6 +6,7 @@ import com.moviebooking.dto.RegisterRequest;
 import com.moviebooking.dto.UpdateProfileRequest;
 import com.moviebooking.entity.User;
 import com.moviebooking.entity.enums.UserRole;
+import com.moviebooking.entity.enums.UserStatus;
 import com.moviebooking.repository.UserRepository;
 import com.moviebooking.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,10 @@ public class UserService {
 
         if (requiredRole == UserRole.admin && user.getRole() != UserRole.admin) {
             throw BusinessException.badRequest("无管理员权限");
+        }
+
+        if (user.getStatus() == UserStatus.disabled) {
+            throw BusinessException.badRequest("账号已被禁用");
         }
 
         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());

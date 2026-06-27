@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { apiGetAdminUsers, apiUpdateAdminUser } from '../../services/api.js'
-import { ElMessage } from 'element-plus'
+import { apiGetAdminUsers, apiUpdateAdminUser, apiToggleUserStatus } from '../../services/api.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const users = ref([])
 const usersLoading = ref(false)
@@ -56,6 +56,16 @@ async function handleSave() {
     loadUsers()
   } catch (e) { ElMessage.error(e.message || '操作失败') }
 }
+
+async function handleToggleStatus(user) {
+  const action = user.status === 'disabled' ? '启用' : '禁用'
+  try {
+    await ElMessageBox.confirm(`确定要${action}用户「${user.username}」吗？`, `确认${action}`, { type: 'warning' })
+    await apiToggleUserStatus(user.id)
+    ElMessage.success(`${action}成功`)
+    loadUsers()
+  } catch {}
+}
 </script>
 
 <template>
@@ -69,16 +79,20 @@ async function handleSave() {
     <div v-if="usersLoading" class="empty">加载中...</div>
     <div v-else-if="users.length" class="table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>角色</th><th>余额</th><th>注册时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>角色</th><th>状态</th><th>余额</th><th>注册时间</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="u in users" :key="u.id">
             <td>{{ u.id }}</td>
             <td class="title-cell">{{ u.username }}</td>
             <td>{{ u.phone }}</td>
             <td><span class="role-badge" :class="u.role">{{ u.role === 'admin' ? '管理员' : '用户' }}</span></td>
+            <td><span class="status-badge" :class="u.status">{{ u.status === 'disabled' ? '已禁用' : '正常' }}</span></td>
             <td>&yen;{{ Number(u.walletBalance).toFixed(1) }}</td>
             <td>{{ u.createdAt?.substring(0, 10) }}</td>
-            <td><button class="btn-edit" @click="openEdit(u)">编辑</button></td>
+            <td>
+              <button class="btn-edit" @click="openEdit(u)">编辑</button>
+              <button class="btn-toggle" :class="u.status" @click="handleToggleStatus(u)">{{ u.status === 'disabled' ? '启用' : '禁用' }}</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -196,6 +210,49 @@ td {
 
 .btn-edit:hover {
   background: #bbdefb;
+}
+
+.status-badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.status-badge.active {
+  background: #e8f5e9;
+  color: #4caf50;
+}
+
+.status-badge.disabled {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.btn-toggle {
+  padding: 4px 14px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+
+.btn-toggle.disabled {
+  background: #e8f5e9;
+  color: #4caf50;
+}
+
+.btn-toggle.disabled:hover {
+  background: #c8e6c9;
+}
+
+.btn-toggle.active {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
+.btn-toggle.active:hover {
+  background: #ffe0b2;
 }
 
 .empty {

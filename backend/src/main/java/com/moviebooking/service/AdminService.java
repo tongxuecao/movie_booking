@@ -6,6 +6,7 @@ import com.moviebooking.entity.User;
 import com.moviebooking.entity.enums.MovieStatus;
 import com.moviebooking.entity.enums.OrderStatus;
 import com.moviebooking.entity.enums.UserRole;
+import com.moviebooking.entity.enums.UserStatus;
 import com.moviebooking.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -124,6 +125,7 @@ public class AdminService {
             item.put("username", u.getUsername());
             item.put("phone", maskPhone(u.getPhone()));
             item.put("role", u.getRole().name());
+            item.put("status", u.getStatus().name());
             item.put("walletBalance", u.getWalletBalance());
             item.put("avatar", u.getAvatar());
             item.put("createdAt", u.getCreatedAt());
@@ -147,6 +149,7 @@ public class AdminService {
         detail.put("username", u.getUsername());
         detail.put("phone", u.getPhone());
         detail.put("role", u.getRole().name());
+        detail.put("status", u.getStatus().name());
         detail.put("walletBalance", u.getWalletBalance());
         detail.put("avatar", u.getAvatar());
         detail.put("version", u.getVersion());
@@ -185,6 +188,13 @@ public class AdminService {
         if (req.getPassword() != null && !req.getPassword().isBlank()) {
             u.setPassword(passwordEncoder.encode(req.getPassword()));
         }
+        userRepository.save(u);
+    }
+
+    public void toggleUserStatus(Long userId) {
+        User u = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("用户不存在"));
+        u.setStatus(u.getStatus() == UserStatus.disabled ? UserStatus.active : UserStatus.disabled);
         userRepository.save(u);
     }
 

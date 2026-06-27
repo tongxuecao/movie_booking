@@ -140,5 +140,6 @@ export function apiGetStatistics() { return get('/admin/statistics') }
 export function apiGetAdminUsers(params) { return get('/admin/user/list', params) }
 export function apiGetAdminUser(id) { return get(`/admin/user/${id}`) }
 export function apiUpdateAdminUser(id, data) { return put(`/admin/user/${id}`, data) }
+export function apiToggleUserStatus(id) { return put(`/admin/user/${id}/status`) }
 
 export { upload as apiUploadImage }

@@ -132,6 +132,7 @@ create table if not exists users
     password       varchar(255)                             not null comment '密码(BCrypt加密)',
     phone          varchar(20)                              null comment '手机号',
     role           enum ('user', 'admin')                   not null,
+    status         varchar(10)   default 'active'            null comment '状态: active/disabled',
     wallet_balance decimal(10, 2) default 1000.00           null comment '虚拟钱包余额(注册送1000)',
     version        int            default 0                 null comment '乐观锁版本号',
     avatar         varchar(255)                             null comment '头像URL',
