@@ -21,25 +21,31 @@ const filteredMovies = computed(() => {
 const mTotalPages = computed(() => Math.max(1, Math.ceil(filteredMovies.value.length / PAGE_SIZE)))
 const pagedMovies = computed(() => { const s = (mPage.value - 1) * PAGE_SIZE; return filteredMovies.value.slice(s, s + PAGE_SIZE) })
 
+const GENRE_OPTIONS = [
+  '动作', '喜剧', '科幻', '爱情', '恐怖', '悬疑', '奇幻',
+  '动画', '剧情', '战争', '犯罪', '纪录片', '冒险', '古装',
+  '家庭', '音乐', '历史', '传记', '武侠', '灾难'
+]
+
 const showMovieForm = ref(false)
 const editingMovieId = ref(null)
-const movieForm = reactive({ title: '', poster: '', genre: '', duration: 120, rating: null, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
+const movieForm = reactive({ title: '', poster: '', genre: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
 
 function openMovieAdd() {
   editingMovieId.value = null
-  Object.assign(movieForm, { title: '', poster: '', genre: '', duration: 120, rating: null, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
+  Object.assign(movieForm, { title: '', poster: '', genre: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
   showMovieForm.value = true
 }
 function openMovieEdit(m) {
   editingMovieId.value = m.id
-  Object.assign(movieForm, { title: m.title, poster: m.poster, genre: m.genre, duration: m.duration, rating: m.rating, director: m.director, actors: m.actors, description: m.description, releaseDate: m.releaseDate, status: m.status })
+  Object.assign(movieForm, { title: m.title, poster: m.poster, genre: m.genre, duration: m.duration, director: m.director, actors: m.actors, description: m.description, releaseDate: m.releaseDate, status: m.status })
   showMovieForm.value = true
 }
 function closeMovieForm() { showMovieForm.value = false }
 
 async function handleMovieSave() {
   if (!movieForm.title.trim()) { ElMessage.warning('请输入电影名称'); return }
-  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120, rating: movieForm.rating ? Number(movieForm.rating) : null }
+  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120 }
   try {
     if (editingMovieId.value) {
       await apiUpdateMovie(editingMovieId.value, data)
@@ -96,14 +102,13 @@ function beforePosterUpload(file) {
     </div>
     <div class="table-wrap" v-if="pagedMovies.length">
       <table>
-        <thead><tr><th>海报</th><th>片名</th><th>导演</th><th>类型</th><th>评分</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>海报</th><th>片名</th><th>导演</th><th>类型</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="m in pagedMovies" :key="m.id">
             <td><img v-if="m.poster" :src="m.poster" class="thumb" /><span v-else class="no-thumb">无</span></td>
             <td class="title-cell">{{ m.title }}</td>
             <td>{{ m.director }}</td>
             <td>{{ m.genre }}</td>
-            <td>{{ m.rating ?? '-' }}</td>
             <td><span class="status-badge" :class="m.status">{{ m.status === 'showing' ? '热映' : m.status === 'upcoming' ? '即将' : m.status }}</span></td>
             <td><button class="btn-edit" @click="openMovieEdit(m)">编辑</button><button class="btn-del" @click="handleMovieDelete(m)">删除</button></td>
           </tr>
@@ -121,9 +126,18 @@ function beforePosterUpload(file) {
         <div class="modal">
           <div class="modal-head"><h3>{{ editingMovieId ? '编辑电影' : '添加电影' }}</h3><button class="btn-close" @click="closeMovieForm">&times;</button></div>
           <div class="modal-body">
-            <div class="form-row"><div class="form-group flex-2"><label>电影名称*</label><input v-model="movieForm.title" /></div><div class="form-group flex-1"><label>状态</label><select v-model="movieForm.status"><option value="showing">热映中</option><option value="upcoming">即将上映</option></select></div></div>
-            <div class="form-row"><div class="form-group flex-1"><label>导演</label><input v-model="movieForm.director" /></div><div class="form-group flex-1"><label>类型</label><input v-model="movieForm.genre" placeholder="动作 / 冒险" /></div></div>
-            <div class="form-row"><div class="form-group flex-1"><label>片长(分钟)</label><input v-model.number="movieForm.duration" type="number" /></div><div class="form-group flex-1"><label>评分</label><input v-model.number="movieForm.rating" type="number" step="0.1" /></div><div class="form-group flex-1"><label>上映日期</label><input v-model="movieForm.releaseDate" type="date" /></div></div>
+            <div class="form-row">
+              <div class="form-group flex-2"><label>电影名称 *</label><input v-model="movieForm.title" placeholder="请输入电影名称" /></div>
+              <div class="form-group flex-1"><label>状态</label><select v-model="movieForm.status"><option value="showing">热映中</option><option value="upcoming">即将上映</option></select></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group flex-1"><label>导演</label><input v-model="movieForm.director" placeholder="请输入导演" /></div>
+              <div class="form-group flex-1"><label>类型</label><select v-model="movieForm.genre"><option value="">请选择类型</option><option v-for="g in GENRE_OPTIONS" :key="g" :value="g">{{ g }}</option></select></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group flex-1"><label>片长（分钟）</label><input v-model.number="movieForm.duration" type="number" min="1" placeholder="120" /></div>
+              <div class="form-group flex-1"><label>上映日期</label><input v-model="movieForm.releaseDate" type="date" /></div>
+            </div>
             <div class="form-group"><label>主演</label><input v-model="movieForm.actors" placeholder="演员1 / 演员2" /></div>
             <div class="form-group"><label>剧情简介</label><textarea v-model="movieForm.description" rows="3" /></div>
             <div class="form-group">
@@ -301,106 +315,131 @@ td {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
   z-index: 1000;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 32px 16px;
   overflow-y: auto;
 }
 
 .modal {
   background: #fff;
-  border-radius: 12px;
-  width: 640px;
+  border-radius: 14px;
+  width: 680px;
   max-width: 100%;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+  overflow: hidden;
 }
 
 .modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid #eee;
+  padding: 20px 28px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
 }
 
 .modal-head h3 {
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
   margin: 0;
 }
 
 .btn-close {
-  font-size: 26px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
   background: none;
   border: none;
   color: #999;
   cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
 
 .btn-close:hover {
   color: #333;
+  background: #eee;
 }
 
 .modal-body {
-  padding: 24px;
-  max-height: 65vh;
+  padding: 28px;
+  max-height: 62vh;
   overflow-y: auto;
 }
 
 .form-row {
   display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 18px;
+  margin-bottom: 4px;
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .form-group label {
   display: block;
   font-size: 13px;
-  color: #666;
-  margin-bottom: 5px;
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 6px;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  padding: 9px 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
   font-size: 14px;
+  color: #333;
   outline: none;
   font-family: inherit;
   box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+  border-color: #bbb;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #bbb;
 }
 
 .form-group textarea {
   resize: vertical;
+  min-height: 70px;
 }
 
-.flex-1 {
-  flex: 1;
-}
-
-.flex-2 {
-  flex: 2;
-}
+.flex-1 { flex: 1; min-width: 0; }
+.flex-2 { flex: 2; min-width: 0; }
 
 .poster-row {
   display: flex;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .poster-row input {
@@ -412,78 +451,99 @@ td {
 }
 
 .upload-trigger {
-  width: 120px;
-  height: 160px;
+  width: 130px;
+  height: 173px;
   border: 2px dashed #ddd;
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  background: #fafafa;
 }
 
 .upload-trigger:hover {
   border-color: #1976d2;
+  background: #f0f6ff;
 }
 
 .upload-icon {
-  font-size: 32px;
+  font-size: 36px;
   color: #ccc;
   line-height: 1;
 }
 
 .upload-text {
   font-size: 12px;
-  color: #999;
-  margin-top: 4px;
+  color: #aaa;
+  margin-top: 6px;
 }
 
 .poster-preview {
-  width: 120px;
-  height: 160px;
+  width: 130px;
+  height: 173px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  border: 1px solid #eee;
 }
 
 .modal-foot {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #eee;
+  padding: 16px 28px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
 }
 
 .btn-cancel {
-  padding: 9px 22px;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 6px;
+  padding: 10px 24px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   font-size: 14px;
   color: #666;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
 .btn-cancel:hover {
-  background: #e0e0e0;
+  background: #f5f5f5;
+  border-color: #ccc;
 }
 
 .btn-save {
-  padding: 9px 22px;
+  padding: 10px 28px;
   background: #1976d2;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.15s;
 }
 
 .btn-save:hover {
   background: #1565c0;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .modal-overlay { padding: 12px; align-items: flex-start; }
+  .modal { width: 100%; border-radius: 12px; }
+  .modal-head { padding: 14px 18px; }
+  .modal-head h3 { font-size: 16px; }
+  .modal-body { padding: 18px; max-height: 55vh; }
+  .modal-foot { padding: 12px 18px; }
+  .form-row { flex-direction: column; gap: 0; }
+  .poster-row { flex-direction: column; }
+}
+
 
 .fade-enter-active,
 .fade-leave-active {
@@ -494,4 +554,18 @@ td {
 .fade-leave-to {
   opacity: 0;
 }
+
+@media (max-width: 768px) {
+  .content-section { padding: 16px; }
+  .toolbar { flex-direction: column; }
+  .toolbar .el-input { max-width: 100% !important; }
+  td, th { padding: 8px 10px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  .content-section { padding: 12px; border-radius: 8px; }
+  .section-header h3 { font-size: 16px; }
+  .btn-add { width: 100%; text-align: center; }
+}
+
 </style>
