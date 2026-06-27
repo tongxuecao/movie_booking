@@ -1,16 +1,27 @@
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth.js'
+import { getToken } from './services/api.js'
 
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 
 const isAdminPage = computed(() => route.path.startsWith('/admin') && auth.isAdmin)
 
 const avatarLetter = computed(() => {
   const name = auth.currentUsername || ''
   return name.charAt(0).toUpperCase() || '?'
+})
+
+onMounted(async () => {
+  if (getToken()) {
+    const ok = await auth.restoreSession()
+    if (ok && auth.isAdmin && !route.path.startsWith('/admin')) {
+      router.replace('/admin')
+    }
+  }
 })
 </script>
 
@@ -26,6 +37,7 @@ const avatarLetter = computed(() => {
         </nav>
         <div class="user-area">
           <template v-if="auth.isLoggedIn">
+            <router-link v-if="auth.isAdmin" to="/admin" class="admin-entry">后台管理</router-link>
             <router-link to="/my" class="user-info">
               <span class="header-avatar">
                 <img v-if="auth.avatar" :src="auth.avatar" alt="" />
@@ -170,6 +182,17 @@ const avatarLetter = computed(() => {
   color: #333;
   font-weight: 500;
 }
+
+.admin-entry {
+  padding: 6px 14px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 13px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.admin-entry:hover { background: #b71c1c; }
 
 .login-btn {
   padding: 6px 18px;

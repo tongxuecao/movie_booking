@@ -70,11 +70,18 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const token = getToken()
+  const user = getStoredUser()
+
   if (to.meta.requiresAuth && !token) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
+
+  // 管理员不能访问用户页面
+  if (user?.role === 'admin' && !to.path.startsWith('/admin') && to.path !== '/login') {
+    return { path: '/admin' }
+  }
+
   if (to.meta.requiresAdmin) {
-    const user = getStoredUser()
     if (!user || user.role !== 'admin') {
       return { path: '/login', query: { redirect: to.fullPath } }
     }

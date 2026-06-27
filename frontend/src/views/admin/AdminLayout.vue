@@ -12,8 +12,6 @@ import AdminStatistics from './AdminStatistics.vue'
 const router = useRouter()
 const auth = useAuthStore()
 
-if (!auth.isAdmin) { router.replace('/login?redirect=/admin') }
-
 const menuComponents = {
   movies: AdminMovies,
   showtimes: AdminShowtimes,

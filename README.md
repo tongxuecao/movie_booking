@@ -98,6 +98,8 @@ npx vite --host      # 启动并暴露局域网（手机可测试）
 | 管理员 | `admin` | `123456` |
 | 普通用户 | 注册即用 | —（注册送 1000 元余额） |
 
+> 密码使用 **BCrypt** 加密存储，永不明文落库。测试数据中的密码哈希值统一为 `$2a$10$46Rl1nNTsWP7wnPrWgOqbuRvN6UsRMBjbKsZ9qzEZklAoteaIINs2`（对应明文 `123456`）。
+
 ## 项目结构
 
 ```
