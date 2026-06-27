@@ -8,6 +8,8 @@ import com.moviebooking.entity.Review;
 import com.moviebooking.repository.MovieRepository;
 import com.moviebooking.repository.ReviewRepository;
 import com.moviebooking.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,10 +17,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 @Service
 public class ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
@@ -94,16 +100,20 @@ public class ReviewService {
     private void updateMovieRating(Long movieId) {
         try {
             Object[] result = reviewRepository.getAverageRatingAndCount(movieId);
+            log.info("更新评分统计 movieId={}, result={}", movieId, result);
             if (result != null && result[0] != null && result[1] != null) {
                 Movie movie = movieRepository.findById(movieId).orElse(null);
                 if (movie != null) {
-                    movie.setRating(new java.math.BigDecimal(result[0].toString()));
+                    BigDecimal avg = new BigDecimal(result[0].toString())
+                            .setScale(1, RoundingMode.HALF_UP);
+                    movie.setRating(avg);
                     movie.setRatingCount(((Number) result[1]).intValue());
                     movieRepository.save(movie);
+                    log.info("评分统计已更新 movieId={}, rating={}, count={}", movieId, avg, movie.getRatingCount());
                 }
             }
         } catch (Exception e) {
-            // 评分更新失败不应影响评论提交
+            log.error("更新评分统计失败 movieId={}", movieId, e);
         }
     }
 
