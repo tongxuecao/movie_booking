@@ -99,17 +99,18 @@ public class ReviewService {
 
     private void updateMovieRating(Long movieId) {
         try {
-            Object[] result = reviewRepository.getAverageRatingAndCount(movieId);
-            log.info("更新评分统计 movieId={}, result={}", movieId, result);
-            if (result != null && result[0] != null && result[1] != null) {
-                Movie movie = movieRepository.findById(movieId).orElse(null);
-                if (movie != null) {
-                    BigDecimal avg = new BigDecimal(result[0].toString())
-                            .setScale(1, RoundingMode.HALF_UP);
-                    movie.setRating(avg);
-                    movie.setRatingCount(((Number) result[1]).intValue());
-                    movieRepository.save(movie);
-                    log.info("评分统计已更新 movieId={}, rating={}, count={}", movieId, avg, movie.getRatingCount());
+            java.util.List<Object[]> rows = reviewRepository.getAverageRatingAndCount(movieId);
+            if (rows != null && !rows.isEmpty()) {
+                Object[] row = rows.get(0);
+                if (row[0] != null && row[1] != null) {
+                    Movie movie = movieRepository.findById(movieId).orElse(null);
+                    if (movie != null) {
+                        BigDecimal avg = new BigDecimal(row[0].toString())
+                                .setScale(1, RoundingMode.HALF_UP);
+                        movie.setRating(avg);
+                        movie.setRatingCount(((Number) row[1]).intValue());
+                        movieRepository.save(movie);
+                    }
                 }
             }
         } catch (Exception e) {
