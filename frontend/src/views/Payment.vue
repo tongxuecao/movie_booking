@@ -321,4 +321,30 @@ function goOrders() { router.push('/my') }
 
 :deep(.pay-dialog .el-dialog__header) { display: none; }
 :deep(.pay-dialog .el-dialog__body) { padding: 28px 24px 24px; }
+
+@media (max-width: 768px) {
+  .pay-card { padding: 20px 16px; }
+  .pay-card h3 { font-size: 18px; }
+  .order-summary { padding: 14px; }
+  .summary-row { font-size: 13px; }
+  .price { font-size: 18px; }
+  .cd-time { font-size: 24px; }
+  .btn-pay { padding: 12px; font-size: 15px; }
+  .result-card { margin: 30px 8px; padding: 28px 18px; }
+  .result-card h2 { font-size: 20px; }
+  .result-icon { font-size: 44px; }
+  .action-buttons { flex-wrap: wrap; gap: 8px; }
+  .action-buttons button { flex: 1 1 auto; min-width: 100px; padding: 11px 16px; font-size: 13px; }
+  :deep(.el-dialog) { width: 95% !important; }
+  .wx-amount .wx-price { font-size: 32px; }
+}
+
+@media (max-width: 480px) {
+  .payment-page { padding: 12px 8px 40px; }
+  .pay-card { padding: 16px 12px; border-radius: 10px; }
+  .action-buttons { flex-direction: column; }
+  .action-buttons button { width: 100%; }
+  .wx-pay-btn { padding: 12px; font-size: 15px; }
+  :deep(.el-dialog__body) { padding: 16px 12px 12px !important; }
+}
 </style>

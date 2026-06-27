@@ -20,4 +20,7 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
 
     @Query("SELECT m FROM Movie m WHERE m.status = :status ORDER BY m.wishCount DESC")
     java.util.List<Movie> findTopByStatusOrderByWishCountDesc(@Param("status") MovieStatus status, Pageable pageable);
+
+    @Query("SELECT m FROM Movie m ORDER BY m.wishCount DESC")
+    java.util.List<Movie> findTopByOrderByWishCountDesc(Pageable pageable);
 }

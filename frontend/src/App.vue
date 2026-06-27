@@ -242,4 +242,31 @@ const avatarLetter = computed(() => {
   color: rgba(255,255,255,0.4) !important;
   font-size: 12px !important;
 }
+
+@media (max-width: 768px) {
+  .header-inner {
+    gap: 12px;
+    padding: 0 12px;
+    height: 52px;
+  }
+  .logo { font-size: 18px; }
+  .nav-link { padding: 6px 10px; font-size: 13px; }
+  .header-username { display: none; }
+  .login-btn { padding: 5px 14px; font-size: 12px; }
+  .register-link { font-size: 12px; }
+  .footer-inner {
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 16px 16px;
+  }
+  .footer-disclaimer { padding: 12px 16px 20px; }
+}
+
+@media (max-width: 480px) {
+  .header-inner { gap: 8px; height: 48px; }
+  .logo { font-size: 16px; }
+  .nav-link { padding: 4px 8px; font-size: 12px; }
+  .header-avatar { width: 28px; height: 28px; font-size: 12px; }
+  .register-link { display: none; }
+}
 </style>

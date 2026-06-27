@@ -74,7 +74,6 @@ onMounted(async () => {
     </div>
 
     <RatingComponent
-      v-if="movie.status === 'showing'"
       :movie-id="movie.id"
       @need-login="router.push('/login?redirect=' + encodeURIComponent(route.fullPath))"
     />

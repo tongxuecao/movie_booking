@@ -6,9 +6,11 @@ import * as echarts from 'echarts'
 const stats = ref(null)
 const statsLoading = ref(false)
 const trendChartRef = ref(null)
-const topMoviesChartRef = ref(null)
+const revenueChartRef = ref(null)
+const wishChartRef = ref(null)
 let trendChart = null
-let topMoviesChart = null
+let revenueChart = null
+let wishChart = null
 
 onMounted(() => loadStats())
 
@@ -24,13 +26,13 @@ async function loadStats() {
 function initCharts() {
   if (!stats.value) return
   initTrendChart()
-  initTopMoviesChart()
+  initRevenueChart()
+  initWishChart()
 }
 
 function initTrendChart() {
   const chartDom = trendChartRef.value
   if (!chartDom) return
-
   if (trendChart) trendChart.dispose()
   trendChart = echarts.init(chartDom)
 
@@ -59,35 +61,51 @@ function initTrendChart() {
   })
 }
 
-function initTopMoviesChart() {
-  const chartDom = topMoviesChartRef.value
+function initRevenueChart() {
+  const chartDom = revenueChartRef.value
   if (!chartDom) return
+  if (revenueChart) revenueChart.dispose()
+  revenueChart = echarts.init(chartDom)
 
-  if (topMoviesChart) topMoviesChart.dispose()
-  topMoviesChart = echarts.init(chartDom)
-
-  if (!stats.value.topMovies || stats.value.topMovies.length === 0) {
-    topMoviesChart.setOption({ title: { text: '热门影片', left: 'center', subtext: '暂无数据' } })
+  const data = stats.value.topMoviesByRevenue
+  if (!data || data.length === 0) {
+    revenueChart.setOption({ title: { text: '电影票房排行', left: 'center', subtext: '暂无数据' } })
     return
   }
 
-  const titles = stats.value.topMovies.map(m => m.title)
-  const orderCounts = stats.value.topMovies.map(m => m.orderCount)
-  const revenues = stats.value.topMovies.map(m => m.revenue)
+  const titles = data.map(m => m.title)
+  const revenues = data.map(m => m.revenue)
 
-  topMoviesChart.setOption({
-    title: { text: '热门影片', left: 'center' },
+  revenueChart.setOption({
+    title: { text: '电影票房排行 TOP10', left: 'center' },
     tooltip: { trigger: 'axis' },
-    legend: { data: ['订单数', '票房'], bottom: 0 },
-    xAxis: { type: 'category', data: titles },
-    yAxis: [
-      { type: 'value', name: '订单数' },
-      { type: 'value', name: '票房(元)' }
-    ],
-    series: [
-      { name: '订单数', type: 'bar', data: orderCounts },
-      { name: '票房', type: 'bar', yAxisIndex: 1, data: revenues }
-    ]
+    xAxis: { type: 'category', data: titles, axisLabel: { rotate: 30, fontSize: 11 } },
+    yAxis: { type: 'value', name: '票房(元)' },
+    series: [{ name: '票房', type: 'bar', data: revenues, itemStyle: { color: '#e74c3c' } }]
+  })
+}
+
+function initWishChart() {
+  const chartDom = wishChartRef.value
+  if (!chartDom) return
+  if (wishChart) wishChart.dispose()
+  wishChart = echarts.init(chartDom)
+
+  const data = stats.value.topMoviesByWishCount
+  if (!data || data.length === 0) {
+    wishChart.setOption({ title: { text: '电影想看排行', left: 'center', subtext: '暂无数据' } })
+    return
+  }
+
+  const titles = data.map(m => m.title)
+  const wishCounts = data.map(m => m.wishCount)
+
+  wishChart.setOption({
+    title: { text: '电影想看排行 TOP10', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: titles, axisLabel: { rotate: 30, fontSize: 11 } },
+    yAxis: { type: 'value', name: '想看数' },
+    series: [{ name: '想看数', type: 'bar', data: wishCounts, itemStyle: { color: '#f39c12' } }]
   })
 }
 </script>
@@ -102,16 +120,27 @@ function initTopMoviesChart() {
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-num">{{ stats.todayOrderCount }}</div><div class="stat-label">今日订单</div></div>
         <div class="stat-card"><div class="stat-num">&yen;{{ stats.todayRevenue?.toFixed(1) }}</div><div class="stat-label">今日收入</div></div>
+        <div class="stat-card"><div class="stat-num">&yen;{{ stats.totalBoxOffice?.toFixed(1) }}</div><div class="stat-label">总票房</div></div>
         <div class="stat-card"><div class="stat-num">{{ stats.totalUsers }}</div><div class="stat-label">总用户数</div></div>
-        <div class="stat-card"><div class="stat-num">{{ stats.totalMovies }}</div><div class="stat-label">总影片数</div></div>
+        <div class="stat-card"><div class="stat-num">{{ stats.totalMovies }}</div><div class="stat-label">总电影数</div></div>
       </div>
       <div class="chart-container" ref="trendChartRef" style="min-height: 400px;"></div>
-      <div class="chart-container" ref="topMoviesChartRef" style="min-height: 400px;"></div>
-      <div v-if="stats?.topMovies?.length" style="margin-top:20px">
-        <h4 style="margin-bottom:12px">热门影片详情</h4>
+      <div class="chart-container" ref="revenueChartRef" style="min-height: 400px;"></div>
+      <div class="chart-container" ref="wishChartRef" style="min-height: 400px;"></div>
+      <!-- 票房排行表格 -->
+      <div v-if="stats?.topMoviesByRevenue?.length" style="margin-top:20px">
+        <h4 style="margin-bottom:12px">电影票房排行</h4>
         <div class="table-wrap"><table>
-          <thead><tr><th>影片</th><th>订单数</th><th>票房</th></tr></thead>
-          <tbody><tr v-for="m in stats.topMovies" :key="m.movieId"><td>{{ m.title }}</td><td>{{ m.orderCount }}</td><td>&yen;{{ m.revenue?.toFixed(1) }}</td></tr></tbody>
+          <thead><tr><th>排名</th><th>电影名</th><th>订单数</th><th>票房</th></tr></thead>
+          <tbody><tr v-for="(m, i) in stats.topMoviesByRevenue" :key="m.movieId"><td>{{ i + 1 }}</td><td>{{ m.title }}</td><td>{{ m.orderCount }}</td><td>&yen;{{ m.revenue?.toFixed(1) }}</td></tr></tbody>
+        </table></div>
+      </div>
+      <!-- 想看排行表格 -->
+      <div v-if="stats?.topMoviesByWishCount?.length" style="margin-top:20px">
+        <h4 style="margin-bottom:12px">电影想看排行</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>排名</th><th>电影名</th><th>想看数</th></tr></thead>
+          <tbody><tr v-for="(m, i) in stats.topMoviesByWishCount" :key="m.movieId"><td>{{ i + 1 }}</td><td>{{ m.title }}</td><td>{{ m.wishCount }}</td></tr></tbody>
         </table></div>
       </div>
     </div>
@@ -138,7 +167,7 @@ function initTopMoviesChart() {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
 }
 

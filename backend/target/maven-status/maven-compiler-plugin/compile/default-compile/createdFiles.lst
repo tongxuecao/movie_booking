@@ -1,3 +1,5 @@
+com\moviebooking\config\SchedulingConfig.class
+com\moviebooking\controller\MovieController.class
 com\moviebooking\entity\Payment.class
 com\moviebooking\entity\User.class
 com\moviebooking\dto\LockSeatsRequest.class
@@ -8,6 +10,7 @@ com\moviebooking\entity\enums\UserRole.class
 com\moviebooking\repository\OrderRepository.class
 com\moviebooking\controller\ShowtimeController.class
 com\moviebooking\entity\enums\PaymentStatus.class
+com\moviebooking\dto\ChangePasswordRequest.class
 com\moviebooking\entity\enums\NotificationStatus.class
 com\moviebooking\service\OrderService$1.class
 com\moviebooking\service\ShowtimeService.class
@@ -17,6 +20,7 @@ com\moviebooking\repository\UserRepository.class
 com\moviebooking\entity\enums\HallType.class
 com\moviebooking\common\BusinessException.class
 com\moviebooking\config\RedisConfig.class
+com\moviebooking\service\ReviewService.class
 com\moviebooking\repository\CinemaRepository.class
 com\moviebooking\service\OrderService.class
 com\moviebooking\entity\enums\SeatType.class
@@ -33,6 +37,7 @@ com\moviebooking\service\AdminService.class
 com\moviebooking\common\PageResult.class
 com\moviebooking\entity\MovieImage.class
 com\moviebooking\service\UploadService.class
+com\moviebooking\repository\ReviewRepository.class
 com\moviebooking\repository\OrderSeatRepository.class
 com\moviebooking\repository\PaymentRepository.class
 com\moviebooking\config\WebConfig.class
@@ -46,6 +51,7 @@ com\moviebooking\controller\UploadController.class
 com\moviebooking\dto\LoginRequest.class
 com\moviebooking\service\NotificationService.class
 com\moviebooking\entity\Hall.class
+com\moviebooking\dto\PayOrderRequest.class
 com\moviebooking\controller\NotificationController.class
 com\moviebooking\repository\HallRepository.class
 com\moviebooking\repository\MovieImageRepository.class
@@ -53,13 +59,16 @@ com\moviebooking\entity\Notification.class
 com\moviebooking\util\JwtUtil.class
 com\moviebooking\common\ApiResult.class
 com\moviebooking\redis\SeatLockService.class
+com\moviebooking\dto\RechargeRequest.class
 com\moviebooking\controller\CinemaController.class
 com\moviebooking\repository\ShowtimeRepository.class
 com\moviebooking\dto\BatchShowtimeRequest.class
 com\moviebooking\dto\CreateOrderRequest.class
 com\moviebooking\entity\Seat.class
 com\moviebooking\dto\UpdateProfileRequest.class
+com\moviebooking\service\WishService.class
 com\moviebooking\entity\Review.class
+com\moviebooking\service\BoxOfficeService.class
 com\moviebooking\entity\Movie.class
 com\moviebooking\dto\HallRequest.class
 com\moviebooking\repository\SeatRepository.class
@@ -67,8 +76,11 @@ com\moviebooking\config\JwtInterceptor.class
 com\moviebooking\redis\OrderStreamProducer.class
 com\moviebooking\service\UserService.class
 com\moviebooking\repository\MovieRepository.class
+com\moviebooking\controller\BoxOfficeController.class
 com\moviebooking\entity\enums\NotificationType.class
 com\moviebooking\entity\enums\ImageType.class
+com\moviebooking\config\SoftAuthInterceptor.class
+com\moviebooking\controller\ReviewController.class
 com\moviebooking\service\MovieService.class
 com\moviebooking\entity\enums\SeatStatus.class
 com\moviebooking\dto\MovieRequest.class

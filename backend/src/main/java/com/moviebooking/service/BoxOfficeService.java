@@ -15,9 +15,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -45,7 +42,7 @@ public class BoxOfficeService {
     }
 
     /**
-     * 获取今日票房数据
+     * 获取票房排行数据（所有电影历史总票房）
      */
     public Map<String, Object> getTodayBoxOffice() {
         // 先从Redis缓存获取
@@ -64,21 +61,15 @@ public class BoxOfficeService {
     }
 
     /**
-     * 计算今日票房并缓存
+     * 计算总票房排行并缓存
      */
     private Map<String, Object> calculateAndCacheBoxOffice() {
-        LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
-        LocalDateTime todayEnd = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
-
-        // 查询今日已支付订单
-        List<Order> todayOrders = orderRepository.findByStatus(OrderStatus.paid, org.springframework.data.domain.Pageable.unpaged())
-                .getContent()
-                .stream()
-                .filter(order -> order.getCreatedAt().isAfter(todayStart) && order.getCreatedAt().isBefore(todayEnd))
-                .collect(Collectors.toList());
+        // 查询所有已支付订单
+        List<Order> allPaidOrders = orderRepository.findByStatus(OrderStatus.paid, org.springframework.data.domain.Pageable.unpaged())
+                .getContent();
 
         // 计算总票房
-        BigDecimal totalRevenue = todayOrders.stream()
+        BigDecimal totalRevenue = allPaidOrders.stream()
                 .map(Order::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -86,7 +77,7 @@ public class BoxOfficeService {
         Map<Long, BigDecimal> movieRevenueMap = new HashMap<>();
         Map<Long, Integer> movieTicketCountMap = new HashMap<>();
 
-        for (Order order : todayOrders) {
+        for (Order order : allPaidOrders) {
             Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
             if (showtime != null) {
                 Long movieId = showtime.getMovieId();
@@ -133,16 +124,16 @@ public class BoxOfficeService {
     }
 
     /**
-     * 定时任务：每5分钟更新今日票房缓存
+     * 定时任务：每5分钟更新票房排行缓存
      */
     @Scheduled(fixedRate = 300000) // 5分钟
     public void syncTodayBoxOffice() {
-        log.info("开始同步今日票房数据...");
+        log.info("开始同步票房排行数据...");
         try {
             calculateAndCacheBoxOffice();
-            log.info("今日票房数据同步完成");
+            log.info("票房排行数据同步完成");
         } catch (Exception e) {
-            log.error("今日票房数据同步失败", e);
+            log.error("票房排行数据同步失败", e);
         }
     }
 

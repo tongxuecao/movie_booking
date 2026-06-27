@@ -26,8 +26,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.createdAt >= :start AND o.status = :status")
     java.math.BigDecimal sumRevenueSince(@Param("start") LocalDateTime start, @Param("status") OrderStatus status);
 
-    @Query("SELECT o.showtimeId, COUNT(o), SUM(o.totalAmount) FROM Order o WHERE o.status = :status GROUP BY o.showtimeId ORDER BY COUNT(o) DESC")
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status = :status")
+    java.math.BigDecimal sumAllRevenue(@Param("status") OrderStatus status);
+
+    @Query("SELECT o.showtimeId, COUNT(o), SUM(o.totalAmount) FROM Order o WHERE o.status = :status GROUP BY o.showtimeId ORDER BY SUM(o.totalAmount) DESC")
     List<Object[]> findTopShowtimes(@Param("status") OrderStatus status, Pageable pageable);
+
+    @Query(value = "SELECT s.movie_id, COUNT(o.id), SUM(o.total_amount) FROM orders o JOIN showtimes s ON o.showtime_id = s.id WHERE o.status = 'paid' GROUP BY s.movie_id ORDER BY SUM(o.total_amount) DESC", nativeQuery = true)
+    List<Object[]> findTopMoviesByRevenue(org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT COUNT(o) > 0 FROM Order o WHERE o.userId = :userId AND o.status = :status AND o.showtimeId IN (SELECT s.id FROM Showtime s WHERE s.movieId = :movieId)")
     boolean existsByUserIdAndMovieIdAndPaid(@Param("userId") Long userId, @Param("movieId") Long movieId, @Param("status") OrderStatus status);

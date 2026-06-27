@@ -4,6 +4,7 @@ import com.moviebooking.entity.enums.MovieStatus;
 import com.moviebooking.entity.enums.OrderStatus;
 import com.moviebooking.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -32,6 +33,7 @@ public class AdminService {
         BigDecimal todayRevenue = orderRepository.sumRevenueSince(todayStart, OrderStatus.paid);
         long totalUsers = userRepository.count();
         long totalMovies = movieRepository.count();
+        BigDecimal totalBoxOffice = orderRepository.sumAllRevenue(OrderStatus.paid);
 
         // 最近7天数据
         List<Map<String, Object>> recent7Days = new ArrayList<>();
@@ -50,22 +52,40 @@ public class AdminService {
             recent7Days.add(day);
         }
 
-        // 热门电影（简化：查最近订单最多的电影）
-        List<Map<String, Object>> topMovies = new ArrayList<>();
-        // 使用简化查询
+        // 电影票房前10排行
+        List<Map<String, Object>> topMoviesByRevenue = new ArrayList<>();
         try {
-            var topShowtimes = orderRepository.findTopShowtimes(OrderStatus.paid, org.springframework.data.domain.PageRequest.of(0, 5));
-            for (var row : topShowtimes) {
-                Long showtimeId = (Long) row[0];
-                Long count = (Long) row[1];
+            var rows = orderRepository.findTopMoviesByRevenue(PageRequest.of(0, 10));
+            for (var row : rows) {
+                Long movieId = ((Number) row[0]).longValue();
+                Long count = ((Number) row[1]).longValue();
                 BigDecimal revenue = (BigDecimal) row[2];
-                // 简化：直接用 showtimeId 查 movie title
-                Map<String, Object> movie = new HashMap<>();
-                movie.put("movieId", showtimeId);
-                movie.put("title", "电影" + showtimeId);
-                movie.put("orderCount", count);
-                movie.put("revenue", revenue);
-                topMovies.add(movie);
+                String title = "电影" + movieId;
+                var movie = movieRepository.findById(movieId);
+                if (movie.isPresent()) {
+                    title = movie.get().getTitle();
+                }
+                Map<String, Object> item = new HashMap<>();
+                item.put("movieId", movieId);
+                item.put("title", title);
+                item.put("orderCount", count);
+                item.put("revenue", revenue);
+                topMoviesByRevenue.add(item);
+            }
+        } catch (Exception e) {
+            // ignore if no data
+        }
+
+        // 电影想看前10排行
+        List<Map<String, Object>> topMoviesByWishCount = new ArrayList<>();
+        try {
+            var movies = movieRepository.findTopByOrderByWishCountDesc(PageRequest.of(0, 10));
+            for (var movie : movies) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("movieId", movie.getId());
+                item.put("title", movie.getTitle());
+                item.put("wishCount", movie.getWishCount());
+                topMoviesByWishCount.add(item);
             }
         } catch (Exception e) {
             // ignore if no data
@@ -76,8 +96,10 @@ public class AdminService {
         result.put("todayRevenue", todayRevenue);
         result.put("totalUsers", totalUsers);
         result.put("totalMovies", totalMovies);
+        result.put("totalBoxOffice", totalBoxOffice);
         result.put("recent7Days", recent7Days);
-        result.put("topMovies", topMovies);
+        result.put("topMoviesByRevenue", topMoviesByRevenue);
+        result.put("topMoviesByWishCount", topMoviesByWishCount);
         return result;
     }
 }

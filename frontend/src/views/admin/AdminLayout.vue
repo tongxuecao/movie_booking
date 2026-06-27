@@ -13,8 +13,6 @@ const auth = useAuthStore()
 
 if (!auth.isAdmin) { router.replace('/login?redirect=/admin') }
 
-const activeMenu = ref('movies')
-
 const menuComponents = {
   movies: AdminMovies,
   showtimes: AdminShowtimes,
@@ -23,8 +21,12 @@ const menuComponents = {
   cinemas: AdminCinemas,
 }
 
+const saved = window.location.hash.replace('#', '')
+const activeMenu = ref(menuComponents[saved] ? saved : 'movies')
+
 function switchMenu(menu) {
   activeMenu.value = menu
+  window.location.hash = menu
 }
 </script>
 

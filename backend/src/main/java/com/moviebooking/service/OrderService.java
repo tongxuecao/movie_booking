@@ -62,9 +62,12 @@ public class OrderService {
     }
 
     public Map<String, Object> lockSeats(Long userId, LockSeatsRequest request) {
-        // 检查座位是否属于该场次的影厅
         Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
                 .orElseThrow(() -> BusinessException.notFound("场次不存在"));
+
+        if (showtime.isExpired()) {
+            throw BusinessException.badRequest("该场次已过期");
+        }
 
         List<Seat> seats = seatRepository.findAllById(request.getSeatIds());
         if (seats.size() != request.getSeatIds().size()) {
@@ -123,6 +126,10 @@ public class OrderService {
 
         Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
                 .orElseThrow(() -> BusinessException.notFound("场次不存在"));
+
+        if (showtime.isExpired()) {
+            throw BusinessException.badRequest("该场次已过期");
+        }
 
         List<Seat> seats = seatRepository.findAllById(request.getSeatIds());
         if (seats.size() != request.getSeatIds().size()) {

@@ -199,4 +199,26 @@ const cols = computed(() => seatData.value?.cols || 10)
 .btn-confirm:hover:not(:disabled) { background: var(--primary-hover); box-shadow: 0 4px 16px rgba(231,76,60,0.4); }
 .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 .seat-bottom-empty { text-align: center; padding: 20px 0; margin-top: 24px; color: var(--text-light); font-size: 14px; }
+
+@media (max-width: 768px) {
+  .seat-page { padding: 12px 12px 40px; }
+  .seat-header h2 { font-size: 18px; }
+  .screen { width: 85%; font-size: 13px; letter-spacing: 4px; }
+  .seat-bottom {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    padding: 14px 16px;
+  }
+  .btn-confirm { width: 100%; text-align: center; padding: 14px 0; }
+  .selected-info { flex-direction: row; justify-content: space-between; }
+  .total-price { font-size: 20px; }
+  .seat-legend { gap: 12px; font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+  .seat-legend { gap: 8px; font-size: 10px; }
+  .seat-btn { width: 26px; height: 22px; font-size: 8px; }
+  .row-label { font-size: 10px; }
+}
 </style>

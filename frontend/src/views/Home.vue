@@ -101,5 +101,10 @@ function handlePageChange(page) {
   .content-layout { flex-direction: column; }
   .movie-grid { grid-template-columns: repeat(4, 1fr); }
 }
-@media (max-width: 640px) { .movie-grid { grid-template-columns: repeat(2, 1fr); } .banner { height: 140px; } .banner-content h2 { font-size: 20px; } }
+@media (max-width: 768px) {
+  .movie-section { order: 2; }
+  .movie-grid { grid-template-columns: repeat(2, 1fr); }
+  .banner { height: 140px; }
+  .banner-content h2 { font-size: 20px; }
+}
 </style>

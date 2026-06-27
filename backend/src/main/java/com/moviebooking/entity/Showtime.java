@@ -74,4 +74,8 @@ public class Showtime {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean isExpired() {
+        return LocalDateTime.of(showDate, showTime).isBefore(LocalDateTime.now());
+    }
 }

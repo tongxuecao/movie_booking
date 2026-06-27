@@ -75,7 +75,7 @@ async function handleRegister() {
 
 <style scoped>
 .register-page { min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
-.register-card { width: 380px; background: #fff; border-radius: 12px; padding: 36px 32px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+.register-card { width: 100%; max-width: 380px; background: #fff; border-radius: 12px; padding: 36px 32px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
 .register-card h2 { text-align: center; font-size: 22px; margin-bottom: 28px; color: #111; }
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; font-size: 14px; margin-bottom: 6px; color: #555; }
@@ -86,4 +86,12 @@ async function handleRegister() {
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .switch { text-align: center; margin-top: 18px; font-size: 13px; color: var(--text-light); }
 .switch a { color: var(--primary); }
+
+@media (max-width: 480px) {
+  .register-page { padding: 24px 12px; }
+  .register-card { padding: 24px 18px; }
+  .register-card h2 { font-size: 20px; margin-bottom: 20px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group input { padding: 10px; font-size: 16px; }
+}
 </style>

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 
 @Service
@@ -58,12 +59,13 @@ public class ShowtimeService {
         result.put("showDate", showtime.getShowDate());
         result.put("showTime", showtime.getShowTime());
         result.put("price", showtime.getPrice());
+        result.put("status", showtime.isExpired() ? "expired" : "available");
         return result;
     }
 
     public List<Map<String, Object>> getShowtimeList(Long movieId, Long cinemaId, String dateStr) {
-        LocalDate date = (dateStr != null) ? LocalDate.parse(dateStr) : LocalDate.now();
-        List<Showtime> showtimes = showtimeRepository.findByMovieIdAndCinemaIdAndDate(movieId, cinemaId, date);
+        LocalDate date = (dateStr != null && !dateStr.isEmpty()) ? LocalDate.parse(dateStr) : null;
+        List<Showtime> showtimes = showtimeRepository.findByMovieIdAndCinemaIdAndDate(movieId, cinemaId, date, LocalDate.now(), LocalTime.now());
 
         // 按影院分组
         Map<Long, List<Showtime>> grouped = new LinkedHashMap<>();

@@ -115,4 +115,21 @@ function goSeatSelect(showtime) {
 .btn-buy { padding: 8px 24px; background: var(--primary); color: #fff; font-size: 14px; font-weight: 600; border-radius: 20px; transition: background 0.2s; }
 .btn-buy:hover { background: var(--primary-hover); }
 .empty { text-align: center; padding: 60px 0; color: var(--text-light); }
+
+@media (max-width: 768px) {
+  .cinema-detail { padding: 12px 12px 40px; }
+  .cinema-header { padding: 16px; }
+  .cinema-header h2 { font-size: 20px; }
+  .showtime-card { padding: 14px 16px; }
+  .st-movie { font-size: 15px; }
+  .st-price { font-size: 18px; }
+  .btn-buy { padding: 6px 18px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  .showtime-card { flex-wrap: wrap; gap: 10px; }
+  .st-info { flex: 1 1 100%; min-width: 0; }
+  .st-movie { word-break: break-all; }
+  .st-action { width: 100%; justify-content: space-between; }
+}
 </style>

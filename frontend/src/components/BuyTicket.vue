@@ -235,7 +235,7 @@ function goSeatSelect(showtime) {
 .bt-table-wrap {
   border: 1px solid #eee;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .bt-table { width: 100%; border-collapse: collapse; }
@@ -280,4 +280,23 @@ function goSeatSelect(showtime) {
 }
 
 .bt-empty { text-align: center; padding: 48px 0; color: var(--text-light); }
+
+@media (max-width: 768px) {
+  .buyticket-overlay { padding: 10px; }
+  .bt-header { padding: 14px 16px; }
+  .bt-body { padding: 14px 16px; }
+  .bt-table th, .bt-table td { padding: 10px 8px; font-size: 12px; }
+  .col-time { font-size: 14px !important; }
+  .price { font-size: 14px; }
+  .btn-buy-miku { padding: 6px 14px; font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .bt-movie-info h3 { font-size: 15px; }
+  .bt-poster, .bt-no-poster { width: 40px; height: 54px; }
+  .bt-close { font-size: 24px; }
+  .bt-dates button { padding: 6px 10px; min-width: 44px; }
+  .date-day { font-size: 13px; }
+  .date-week { font-size: 10px; }
+}
 </style>

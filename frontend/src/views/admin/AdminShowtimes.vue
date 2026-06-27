@@ -1,13 +1,16 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useMovieStore } from '../../stores/movies.js'
-import { apiCreateShowtime, apiGetAdminShowtimes, apiDeleteShowtime } from '../../services/api.js'
+import { useCinemaStore } from '../../stores/cinemas.js'
+import { apiCreateShowtime, apiGetAdminShowtimes, apiDeleteShowtime, apiGetCinemaHalls } from '../../services/api.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const movieStore = useMovieStore()
+const cinemaStore = useCinemaStore()
 
 const showStForm = ref(false)
-const stForm = reactive({ movieId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+const halls = ref([])
 const adminShowtimes = ref([])
 const showtimesLoading = ref(false)
 const stMovieFilter = ref('')
@@ -18,6 +21,7 @@ const ST_PAGE_SIZE = 10
 
 onMounted(() => {
   movieStore.fetchMovies({ size: 100 })
+  cinemaStore.fetchCinemas({ size: 200 })
   loadShowtimes()
 })
 
@@ -34,8 +38,20 @@ async function loadShowtimes() {
 }
 
 function openStAdd() {
-  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', cinemaId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+  halls.value = []
   showStForm.value = true
+}
+
+async function onCinemaChange() {
+  stForm.hallId = ''
+  halls.value = []
+  if (stForm.cinemaId) {
+    try {
+      const data = await apiGetCinemaHalls(stForm.cinemaId)
+      halls.value = data || []
+    } catch {}
+  }
 }
 
 async function handleStSave() {
@@ -102,12 +118,32 @@ async function handleShowtimeDelete(st) {
           <div class="modal-head"><h3>添加排片</h3><button class="btn-close" @click="showStForm = false">&times;</button></div>
           <div class="modal-body">
             <div class="form-row">
-              <div class="form-group flex-1"><label>电影ID</label><input v-model.number="stForm.movieId" type="number" /></div>
-              <div class="form-group flex-1"><label>影厅ID</label><input v-model.number="stForm.hallId" type="number" /></div>
+              <div class="form-group flex-1">
+                <label>电影</label>
+                <select v-model="stForm.movieId">
+                  <option v-for="m in movieStore.movies" :key="m.id" :value="m.id">{{ m.title }}</option>
+                </select>
+              </div>
+              <div class="form-group flex-1">
+                <label>影院</label>
+                <select v-model="stForm.cinemaId" @change="onCinemaChange">
+                  <option value="">请选择影院</option>
+                  <option v-for="c in cinemaStore.cinemas" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
             </div>
             <div class="form-row">
+              <div class="form-group flex-1">
+                <label>影厅</label>
+                <select v-model="stForm.hallId" :disabled="!stForm.cinemaId">
+                  <option value="">请选择影厅</option>
+                  <option v-for="h in halls" :key="h.id" :value="h.id">{{ h.name }}（{{ h.seatCount }}座 / {{ h.hallType }}）</option>
+                </select>
+              </div>
               <div class="form-group flex-1"><label>日期</label><input v-model="stForm.showDate" type="date" /></div>
               <div class="form-group flex-1"><label>时间</label><input v-model="stForm.showTime" type="time" /></div>
+            </div>
+            <div class="form-row">
               <div class="form-group flex-1"><label>票价(¥)</label><input v-model.number="stForm.price" type="number" step="0.1" /></div>
             </div>
           </div>
@@ -298,7 +334,20 @@ td {
   box-sizing: border-box;
 }
 
-.form-group input:focus {
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
   border-color: #1976d2;
 }
 
