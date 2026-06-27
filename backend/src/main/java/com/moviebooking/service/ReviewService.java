@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -31,8 +32,8 @@ public class ReviewService {
         this.movieRepository = movieRepository;
     }
 
+    @Transactional
     public Map<String, Object> createReview(Long userId, ReviewRequest request) {
-        // 检查是否已评分
         Optional<Review> existingReview = reviewRepository.findByUserIdAndMovieId(userId, request.getMovieId());
 
         Review review;
@@ -90,18 +91,19 @@ public class ReviewService {
         return result;
     }
 
-    /**
-     * 更新Movie表的平均评分
-     */
     private void updateMovieRating(Long movieId) {
-        Object[] result = reviewRepository.getAverageRatingAndCount(movieId);
-        if (result != null && result[0] != null) {
-            Movie movie = movieRepository.findById(movieId).orElse(null);
-            if (movie != null) {
-                movie.setRating(new java.math.BigDecimal(result[0].toString()));
-                movie.setRatingCount(((Long) result[1]).intValue());
-                movieRepository.save(movie);
+        try {
+            Object[] result = reviewRepository.getAverageRatingAndCount(movieId);
+            if (result != null && result[0] != null && result[1] != null) {
+                Movie movie = movieRepository.findById(movieId).orElse(null);
+                if (movie != null) {
+                    movie.setRating(new java.math.BigDecimal(result[0].toString()));
+                    movie.setRatingCount(((Number) result[1]).intValue());
+                    movieRepository.save(movie);
+                }
             }
+        } catch (Exception e) {
+            // 评分更新失败不应影响评论提交
         }
     }
 
