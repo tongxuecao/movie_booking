@@ -14,10 +14,12 @@ const movieStore = useMovieStore()
 const movie = ref(null)
 const loading = ref(true)
 const buyMovie = ref(null)
+const currentPoster = ref('')
 
 onMounted(async () => {
   try {
     movie.value = await movieStore.fetchMovie(Number(route.params.id))
+    currentPoster.value = movie.value.poster || ''
   } catch {
     ElMessage.error('影片不存在')
     router.replace('/')
@@ -33,8 +35,18 @@ onMounted(async () => {
 
     <div class="detail-layout">
       <div class="poster-section">
-        <img v-if="movie.poster" :src="movie.poster" :alt="movie.title" class="poster-large" />
+        <img v-if="currentPoster" :src="currentPoster" :alt="movie.title" class="poster-large" />
         <div v-else class="poster-placeholder">暂无海报</div>
+        <div class="poster-thumbs" v-if="movie.images?.length > 1">
+          <img
+            v-for="(url, idx) in movie.images"
+            :key="idx"
+            :src="url"
+            class="poster-thumb-img"
+            :class="{ active: currentPoster === url }"
+            @click="currentPoster = url"
+          />
+        </div>
       </div>
 
       <div class="info-section">
@@ -90,8 +102,12 @@ onMounted(async () => {
 .back-btn:hover { opacity: 0.8; }
 .detail-layout { display: flex; gap: 40px; }
 .poster-section { flex: 0 0 340px; }
-.poster-large { width: 100%; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.poster-large { width: 100%; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: block; }
 .poster-placeholder { aspect-ratio: 2/3; background: #eee; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 16px; }
+.poster-thumbs { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.poster-thumb-img { width: 64px; height: 85px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s; }
+.poster-thumb-img:hover { border-color: #d32f2f; }
+.poster-thumb-img.active { border-color: #d32f2f; }
 .info-section { flex: 1; }
 .movie-title { font-size: 30px; color: #111; margin-bottom: 16px; }
 .tags { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }

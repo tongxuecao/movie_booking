@@ -30,18 +30,25 @@ const GENRE_OPTIONS = [
 const showMovieForm = ref(false)
 const editingMovieId = ref(null)
 const selectedGenres = ref([])
+const posterList = ref([])
 const movieForm = reactive({ title: '', poster: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
 
 function openMovieAdd() {
   editingMovieId.value = null
   selectedGenres.value = []
+  posterList.value = []
   Object.assign(movieForm, { title: '', poster: '', duration: 120, director: '', actors: '', description: '', releaseDate: '', status: 'showing' })
   showMovieForm.value = true
 }
-function openMovieEdit(m) {
+async function openMovieEdit(m) {
   editingMovieId.value = m.id
   selectedGenres.value = m.genre ? m.genre.split(' / ').filter(Boolean) : []
   Object.assign(movieForm, { title: m.title, poster: m.poster, duration: m.duration, director: m.director, actors: m.actors, description: m.description, releaseDate: m.releaseDate, status: m.status })
+  try {
+    const detail = await movieStore.fetchMovie(m.id)
+    const imgs = detail.images?.length ? detail.images : (m.poster ? [m.poster] : [])
+    posterList.value = imgs.map(u => u.replace(/^\/api(?=\/uploads)/, ''))
+  } catch { posterList.value = m.poster ? [m.poster.replace(/^\/api(?=\/uploads)/, '')] : [] }
   showMovieForm.value = true
 }
 function closeMovieForm() { showMovieForm.value = false }
@@ -49,7 +56,8 @@ function closeMovieForm() { showMovieForm.value = false }
 async function handleMovieSave() {
   if (!movieForm.title.trim()) { ElMessage.warning('请输入电影名称'); return }
   if (selectedGenres.value.length === 0) { ElMessage.warning('请选择电影类型'); return }
-  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120, genre: selectedGenres.value.join(' / ') }
+  movieForm.poster = posterList.value[0] || ''
+  const data = { ...movieForm, title: movieForm.title.trim(), duration: Number(movieForm.duration) || 120, genre: selectedGenres.value.join(' / '), images: posterList.value }
   try {
     if (editingMovieId.value) {
       await apiUpdateMovie(editingMovieId.value, data)
@@ -79,11 +87,15 @@ const uploadHeaders = computed(() => {
 
 function handleUploadSuccess(res) {
   if (res.code === 200) {
-    movieForm.poster = resolveImageUrl(res.data?.url || '')
+    posterList.value.push(res.data?.url || '')
     ElMessage.success('上传成功')
   } else {
     ElMessage.error(res.message || '上传失败')
   }
+}
+
+function removeImage(index) {
+  posterList.value.splice(index, 1)
 }
 
 function beforePosterUpload(file) {
@@ -145,25 +157,32 @@ function beforePosterUpload(file) {
             <div class="form-group"><label>主演</label><input v-model="movieForm.actors" placeholder="演员1 / 演员2" /></div>
             <div class="form-group"><label>剧情简介</label><textarea v-model="movieForm.description" rows="3" /></div>
             <div class="form-group">
-              <label>海报</label>
-              <div class="poster-row">
-                <input v-model="movieForm.poster" placeholder="或直接输入图片URL" />
+              <label>海报（可上传多张，第一张为封面）</label>
+              <div class="poster-list">
+                <div class="poster-item" v-for="(url, idx) in posterList" :key="idx">
+                  <img :src="resolveImageUrl(url)" class="poster-thumb" />
+                  <span class="cover-badge" v-if="idx === 0">封面</span>
+                  <button class="thumb-del" @click="removeImage(idx)">&times;</button>
+                </div>
+                <div class="poster-upload-area">
+                  <el-upload
+                    :action="API_BASE + '/upload/image'"
+                    :headers="uploadHeaders"
+                    :show-file-list="false"
+                    :before-upload="beforePosterUpload"
+                    :on-success="handleUploadSuccess"
+                    accept="image/*"
+                  >
+                    <div class="upload-trigger">
+                      <span class="upload-icon">+</span>
+                      <span class="upload-text">上传</span>
+                    </div>
+                  </el-upload>
+                </div>
               </div>
-              <div class="poster-upload-area">
-                <el-upload
-                  :action="API_BASE + '/upload/image'"
-                  :headers="uploadHeaders"
-                  :show-file-list="false"
-                  :before-upload="beforePosterUpload"
-                  :on-success="handleUploadSuccess"
-                  accept="image/*"
-                >
-                  <div class="upload-trigger" v-if="!movieForm.poster">
-                    <span class="upload-icon">+</span>
-                    <span class="upload-text">上传海报</span>
-                  </div>
-                  <img v-else :src="movieForm.poster" class="poster-preview" />
-                </el-upload>
+              <div class="poster-row" style="margin-top:10px">
+                <input v-model="movieForm.poster" placeholder="或直接输入海报URL（封面）" />
+                <button type="button" class="btn-add-url" @click="movieForm.poster && posterList.push(movieForm.poster)">添加</button>
               </div>
             </div>
           </div>
@@ -454,6 +473,77 @@ td {
   display: inline-block;
 }
 
+.poster-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.poster-item {
+  position: relative;
+  width: 130px;
+  height: 173px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+.poster-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #d32f2f;
+  color: #fff;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.thumb-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.thumb-del:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+.btn-add-url {
+  padding: 9px 16px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-add-url:hover {
+  background: #e0e0e0;
+}
+
 .upload-trigger {
   width: 130px;
   height: 173px;
@@ -483,15 +573,6 @@ td {
   font-size: 12px;
   color: #aaa;
   margin-top: 6px;
-}
-
-.poster-preview {
-  width: 130px;
-  height: 173px;
-  object-fit: cover;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 1px solid #eee;
 }
 
 .modal-foot {

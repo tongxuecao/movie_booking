@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +61,7 @@ public class MovieService {
 
     // --- Admin methods ---
 
+    @Transactional
     public Map<String, Object> createMovie(MovieRequest request) {
         Movie movie = new Movie();
         applyMovieFields(movie, request);
@@ -68,6 +70,7 @@ public class MovieService {
         return Map.of("id", movie.getId());
     }
 
+    @Transactional
     public void updateMovie(Long id, MovieRequest request) {
         Movie movie = movieRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("电影不存在"));
@@ -78,10 +81,12 @@ public class MovieService {
         }
     }
 
+    @Transactional
     public void deleteMovie(Long id) {
         if (!movieRepository.existsById(id)) {
             throw BusinessException.notFound("电影不存在");
         }
+        movieImageRepository.deleteByMovieIdAndImageType(id, ImageType.poster);
         movieRepository.deleteById(id);
     }
 

@@ -14,7 +14,7 @@ export function setStoredUser(user) { localStorage.setItem(USER_KEY, JSON.string
 const IMAGE_KEYS = new Set(['poster', 'avatar', 'moviePoster', 'url'])
 
 function resolveUrls(obj) {
-  if (Array.isArray(obj)) return obj.map(resolveUrls)
+  if (Array.isArray(obj)) return obj.map(v => typeof v === 'string' && v.startsWith('/uploads/') ? resolveImageUrl(v) : resolveUrls(v))
   if (obj && typeof obj === 'object') {
     const out = {}
     for (const [k, v] of Object.entries(obj)) {
