@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useMovieStore } from '../../stores/movies.js'
 import { useCinemaStore } from '../../stores/cinemas.js'
 import { apiCreateShowtime, apiGetAdminShowtimes, apiDeleteShowtime, apiGetCinemaHalls } from '../../services/api.js'
@@ -10,6 +10,7 @@ const cinemaStore = useCinemaStore()
 
 const showStForm = ref(false)
 const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+const selectedMovie = computed(() => movieStore.movies.find(m => m.id === stForm.movieId))
 const halls = ref([])
 const adminShowtimes = ref([])
 const showtimesLoading = ref(false)
@@ -56,6 +57,10 @@ async function onCinemaChange() {
 
 async function handleStSave() {
   if (!stForm.movieId || !stForm.hallId || !stForm.showDate || !stForm.showTime) { ElMessage.warning('请填写完整信息'); return }
+  if (selectedMovie.value?.releaseDate && stForm.showDate < selectedMovie.value.releaseDate) {
+    ElMessage.warning('拍片日期不能早于电影上映日期（' + selectedMovie.value.releaseDate + '）')
+    return
+  }
   try {
     await apiCreateShowtime({ movieId: Number(stForm.movieId), hallId: Number(stForm.hallId), showDate: stForm.showDate, showTime: stForm.showTime, price: Number(stForm.price) })
     ElMessage.success('排片成功')
@@ -140,7 +145,7 @@ async function handleShowtimeDelete(st) {
                   <option v-for="h in halls" :key="h.id" :value="h.id">{{ h.name }}（{{ h.seatCount }}座 / {{ h.hallType }}）</option>
                 </select>
               </div>
-              <div class="form-group flex-1"><label>日期</label><input v-model="stForm.showDate" type="date" /></div>
+              <div class="form-group flex-1"><label>日期</label><input v-model="stForm.showDate" type="date" :min="selectedMovie?.releaseDate || ''" /></div>
               <div class="form-group flex-1"><label>时间</label><input v-model="stForm.showTime" type="time" /></div>
             </div>
             <div class="form-row">

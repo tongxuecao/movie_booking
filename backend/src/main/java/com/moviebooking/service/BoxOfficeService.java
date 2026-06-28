@@ -68,21 +68,21 @@ public class BoxOfficeService {
         List<Order> allPaidOrders = orderRepository.findByStatus(OrderStatus.paid, org.springframework.data.domain.Pageable.unpaged())
                 .getContent();
 
-        // 计算总票房
-        BigDecimal totalRevenue = allPaidOrders.stream()
-                .map(Order::getTotalAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // 按电影统计票房
+        // 按电影统计票房，只计入电影仍存在的订单
         Map<Long, BigDecimal> movieRevenueMap = new HashMap<>();
         Map<Long, Integer> movieTicketCountMap = new HashMap<>();
+        BigDecimal totalRevenue = BigDecimal.ZERO;
 
         for (Order order : allPaidOrders) {
             Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
             if (showtime != null) {
                 Long movieId = showtime.getMovieId();
-                movieRevenueMap.merge(movieId, order.getTotalAmount(), BigDecimal::add);
-                movieTicketCountMap.merge(movieId, 1, Integer::sum);
+                Movie movie = movieRepository.findById(movieId).orElse(null);
+                if (movie != null) {
+                    totalRevenue = totalRevenue.add(order.getTotalAmount());
+                    movieRevenueMap.merge(movieId, order.getTotalAmount(), BigDecimal::add);
+                    movieTicketCountMap.merge(movieId, 1, Integer::sum);
+                }
             }
         }
 

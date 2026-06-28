@@ -40,7 +40,7 @@ public class AdminService {
         BigDecimal todayRevenue = orderRepository.sumRevenueSince(todayStart, OrderStatus.paid);
         long totalUsers = userRepository.count();
         long totalMovies = movieRepository.count();
-        BigDecimal totalBoxOffice = orderRepository.sumAllRevenue(OrderStatus.paid);
+        BigDecimal totalBoxOffice = orderRepository.sumAllRevenueForExistingMovies(OrderStatus.paid.name());
 
         // 最近7天数据
         List<Map<String, Object>> recent7Days = new ArrayList<>();
@@ -67,14 +67,11 @@ public class AdminService {
                 Long movieId = ((Number) row[0]).longValue();
                 Long count = ((Number) row[1]).longValue();
                 BigDecimal revenue = (BigDecimal) row[2];
-                String title = "电影" + movieId;
-                var movie = movieRepository.findById(movieId);
-                if (movie.isPresent()) {
-                    title = movie.get().getTitle();
-                }
+                var movie = movieRepository.findById(movieId).orElse(null);
+                if (movie == null) continue;
                 Map<String, Object> item = new HashMap<>();
                 item.put("movieId", movieId);
-                item.put("title", title);
+                item.put("title", movie.getTitle());
                 item.put("orderCount", count);
                 item.put("revenue", revenue);
                 topMoviesByRevenue.add(item);

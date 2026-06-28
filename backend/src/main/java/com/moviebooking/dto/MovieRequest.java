@@ -12,6 +12,7 @@ public class MovieRequest {
     private String actors;
     private String description;
     private String poster;
+    private java.util.List<String> images;
     private BigDecimal rating;
     private String status;
 
@@ -38,6 +39,9 @@ public class MovieRequest {
 
     public String getPoster() { return poster; }
     public void setPoster(String poster) { this.poster = poster; }
+
+    public java.util.List<String> getImages() { return images; }
+    public void setImages(java.util.List<String> images) { this.images = images; }
 
     public BigDecimal getRating() { return rating; }
     public void setRating(BigDecimal rating) { this.rating = rating; }

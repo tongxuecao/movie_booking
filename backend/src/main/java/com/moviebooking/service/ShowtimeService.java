@@ -154,6 +154,12 @@ public class ShowtimeService {
 
     @Transactional
     public Map<String, Object> createShowtime(ShowtimeRequest request) {
+        Movie movie = movieRepository.findById(request.getMovieId())
+                .orElseThrow(() -> BusinessException.notFound("电影不存在"));
+        if (request.getShowDate().isBefore(movie.getReleaseDate())) {
+            throw BusinessException.badRequest("拍片日期不能早于电影上映日期（" + movie.getReleaseDate() + "）");
+        }
+
         Showtime showtime = new Showtime();
         showtime.setMovieId(request.getMovieId());
         showtime.setHallId(request.getHallId());
@@ -166,6 +172,12 @@ public class ShowtimeService {
 
     @Transactional
     public List<Map<String, Object>> batchCreateShowtime(BatchShowtimeRequest request) {
+        Movie movie = movieRepository.findById(request.getMovieId())
+                .orElseThrow(() -> BusinessException.notFound("电影不存在"));
+        if (request.getShowDate().isBefore(movie.getReleaseDate())) {
+            throw BusinessException.badRequest("拍片日期不能早于电影上映日期（" + movie.getReleaseDate() + "）");
+        }
+
         List<Map<String, Object>> results = new ArrayList<>();
         for (var time : request.getTimes()) {
             Showtime showtime = new Showtime();

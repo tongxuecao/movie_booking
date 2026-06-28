@@ -4,7 +4,10 @@ import com.moviebooking.common.BusinessException;
 import com.moviebooking.common.PageResult;
 import com.moviebooking.dto.MovieRequest;
 import com.moviebooking.entity.Movie;
+import com.moviebooking.entity.MovieImage;
+import com.moviebooking.entity.enums.ImageType;
 import com.moviebooking.entity.enums.MovieStatus;
+import com.moviebooking.repository.MovieImageRepository;
 import com.moviebooking.repository.MovieRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -13,16 +16,19 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class MovieService {
 
     private final MovieRepository movieRepository;
+    private final MovieImageRepository movieImageRepository;
 
     @Autowired
-    public MovieService(MovieRepository movieRepository) {
+    public MovieService(MovieRepository movieRepository, MovieImageRepository movieImageRepository) {
         this.movieRepository = movieRepository;
+        this.movieImageRepository = movieImageRepository;
     }
 
     public PageResult<Map<String, Object>> getMovieList(String status, String keyword, int page, int size) {
@@ -44,7 +50,12 @@ public class MovieService {
     public Map<String, Object> getMovieDetail(Long id) {
         Movie movie = movieRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("电影不存在"));
-        return toMovieDetail(movie);
+        Map<String, Object> detail = toMovieDetail(movie);
+        List<String> images = movieImageRepository
+                .findByMovieIdAndImageTypeOrderBySortOrderAsc(id, ImageType.poster)
+                .stream().map(MovieImage::getImageUrl).toList();
+        detail.put("images", images);
+        return detail;
     }
 
     // --- Admin methods ---
@@ -53,6 +64,7 @@ public class MovieService {
         Movie movie = new Movie();
         applyMovieFields(movie, request);
         movie = movieRepository.save(movie);
+        syncMovieImages(movie.getId(), request.getImages());
         return Map.of("id", movie.getId());
     }
 
@@ -61,6 +73,9 @@ public class MovieService {
                 .orElseThrow(() -> BusinessException.notFound("电影不存在"));
         applyMovieFields(movie, request);
         movieRepository.save(movie);
+        if (request.getImages() != null) {
+            syncMovieImages(id, request.getImages());
+        }
     }
 
     public void deleteMovie(Long id) {
@@ -68,6 +83,20 @@ public class MovieService {
             throw BusinessException.notFound("电影不存在");
         }
         movieRepository.deleteById(id);
+    }
+
+    private void syncMovieImages(Long movieId, java.util.List<String> images) {
+        if (images == null) return;
+        movieImageRepository.deleteByMovieIdAndImageType(movieId, ImageType.poster);
+        for (int i = 0; i < images.size(); i++) {
+            MovieImage mi = new MovieImage();
+            mi.setMovieId(movieId);
+            mi.setImageUrl(images.get(i));
+            mi.setImageType(ImageType.poster);
+            mi.setSortOrder(i);
+            mi.setIsCover(i == 0);
+            movieImageRepository.save(mi);
+        }
     }
 
     private void applyMovieFields(Movie movie, MovieRequest req) {
