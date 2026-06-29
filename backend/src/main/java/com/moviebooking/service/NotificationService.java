@@ -4,6 +4,7 @@ import com.moviebooking.common.BusinessException;
 import com.moviebooking.common.PageResult;
 import com.moviebooking.entity.Notification;
 import com.moviebooking.entity.enums.NotificationStatus;
+import com.moviebooking.entity.enums.NotificationType;
 import com.moviebooking.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,20 @@ public class NotificationService {
         }).toList();
 
         return new PageResult<>(list, notificationPage.getTotalElements(), page, size);
+    }
+
+    public void create(Long userId, String title, String content, NotificationType type) {
+        Notification notif = new Notification();
+        notif.setUserId(userId);
+        notif.setTitle(title);
+        notif.setContent(content);
+        notif.setType(type);
+        notif.setStatus(NotificationStatus.unread);
+        notificationRepository.save(notif);
+    }
+
+    public long countUnread(Long userId) {
+        return notificationRepository.countByUserIdAndStatus(userId, NotificationStatus.unread);
     }
 
     public void markAsRead(Long userId, Long notificationId) {

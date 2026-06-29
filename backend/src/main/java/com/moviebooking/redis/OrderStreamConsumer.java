@@ -1,8 +1,10 @@
 package com.moviebooking.redis;
 
 import com.moviebooking.entity.Order;
+import com.moviebooking.entity.enums.NotificationType;
 import com.moviebooking.entity.enums.OrderStatus;
 import com.moviebooking.repository.OrderRepository;
+import com.moviebooking.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,15 +25,17 @@ public class OrderStreamConsumer {
     private final StringRedisTemplate redisTemplate;
     private final OrderRepository orderRepository;
     private final SeatLockService seatLockService;
+    private final NotificationService notificationService;
 
     private static final String QUEUE_KEY = "order:queue";
 
     @Autowired
     public OrderStreamConsumer(StringRedisTemplate redisTemplate, OrderRepository orderRepository,
-                               SeatLockService seatLockService) {
+                               SeatLockService seatLockService, NotificationService notificationService) {
         this.redisTemplate = redisTemplate;
         this.orderRepository = orderRepository;
         this.seatLockService = seatLockService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -63,6 +67,9 @@ public class OrderStreamConsumer {
             order.setRemark("超时未支付，自动取消");
             orderRepository.save(order);
             seatLockService.releaseUserLock(order.getUserId());
+            notificationService.create(order.getUserId(), "订单已取消",
+                "订单 " + order.getOrderNo() + " 超时未支付，已自动取消，座位已释放",
+                NotificationType.order);
             log.info("订单超时自动取消: orderNo={}", order.getOrderNo());
         }
     }

@@ -5,6 +5,7 @@ import com.moviebooking.service.BoxOfficeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -19,7 +20,10 @@ public class BoxOfficeController {
     }
 
     @GetMapping("/today")
-    public ApiResult<?> getTodayBoxOffice() {
+    public ApiResult<?> getBoxOffice(@RequestParam(defaultValue = "today") String type) {
+        if ("cumulative".equals(type)) {
+            return ApiResult.success(boxOfficeService.getCumulativeBoxOffice());
+        }
         return ApiResult.success(boxOfficeService.getTodayBoxOffice());
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -45,4 +46,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     int existsByUserIdAndMovieIdAndPaidNative(@Param("userId") Long userId, @Param("movieId") Long movieId);
 
     List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime createdAt);
+
+    @Query("SELECT o FROM Order o WHERE o.status = :status AND o.showtimeId IN (SELECT s.id FROM Showtime s WHERE s.showDate = :date)")
+    List<Order> findTodayPaidOrders(@Param("status") OrderStatus status, @Param("date") LocalDate date);
+
+    @Query("SELECT o FROM Order o WHERE o.status = :status AND o.showtimeId IN (SELECT s.id FROM Showtime s WHERE s.showDate <= :date)")
+    List<Order> findCumulativePaidOrders(@Param("status") OrderStatus status, @Param("date") LocalDate date);
 }

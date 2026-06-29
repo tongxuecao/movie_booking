@@ -26,6 +26,9 @@ public class Payment {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal fee = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     private PaymentStatus status = PaymentStatus.success;
 
@@ -51,6 +54,9 @@ public class Payment {
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+    public BigDecimal getFee() { return fee; }
+    public void setFee(BigDecimal fee) { this.fee = fee; }
 
     public PaymentStatus getStatus() { return status; }
     public void setStatus(PaymentStatus status) { this.status = status; }

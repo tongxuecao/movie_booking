@@ -1,20 +1,33 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiGetTodayBoxOffice, apiGetMostExpectedMovies } from '../services/api.js'
+import { apiGetBoxOffice, apiGetMostExpectedMovies } from '../services/api.js'
 
 const router = useRouter()
-const boxOffice = ref(null)
+const boxOfficeType = ref('today')
+const boxOfficeData = ref(null)
 const mostExpected = ref([])
 const loading = ref(true)
 
+async function fetchBoxOffice(type) {
+  try {
+    boxOfficeData.value = await apiGetBoxOffice(type)
+  } catch (error) {
+    console.error('加载票房数据失败:', error)
+  }
+}
+
+watch(boxOfficeType, (type) => {
+  fetchBoxOffice(type)
+})
+
 onMounted(async () => {
   try {
-    const [boxOfficeData, expectedData] = await Promise.all([
-      apiGetTodayBoxOffice(),
+    const [result, expectedData] = await Promise.all([
+      apiGetBoxOffice('today'),
       apiGetMostExpectedMovies(5)
     ])
-    boxOffice.value = boxOfficeData
+    boxOfficeData.value = result
     mostExpected.value = expectedData
   } catch (error) {
     console.error('加载侧边栏数据失败:', error)
@@ -30,25 +43,40 @@ function formatMoney(amount) {
     maximumFractionDigits: 2
   })
 }
+
 </script>
 
 <template>
   <div class="sidebar">
-    <!-- 今日票房 -->
+    <!-- 票房 -->
     <div class="card box-office-card">
       <h3 class="card-title">
         <span class="icon">🎬</span>
-        今日票房
+        票房
       </h3>
+      <div class="tabs">
+        <button
+          class="tab"
+          :class="{ active: boxOfficeType === 'today' }"
+          @click="boxOfficeType = 'today'"
+        >今日票房</button>
+        <button
+          class="tab"
+          :class="{ active: boxOfficeType === 'cumulative' }"
+          @click="boxOfficeType = 'cumulative'"
+        >累计票房</button>
+      </div>
       <div v-if="loading" class="loading">加载中...</div>
-      <div v-else-if="boxOffice" class="box-office-content">
-        <div class="total-revenue">
-          <span class="label">总票房</span>
-          <span class="amount">¥{{ formatMoney(boxOffice.totalRevenue) }}</span>
-        </div>
-        <div class="movie-list" v-if="boxOffice.movies && boxOffice.movies.length">
-          <div class="movie-item clickable" v-for="(movie, index) in boxOffice.movies" :key="movie.movieId" @click="router.push(`/movie/${movie.movieId}`)">
+      <div v-else-if="boxOfficeData" class="box-office-content">
+        <div class="movie-list" v-if="boxOfficeData.movies && boxOfficeData.movies.length">
+          <div
+            class="movie-item clickable"
+            v-for="(movie, index) in boxOfficeData.movies"
+            :key="movie.movieId"
+            @click="router.push(`/movie/${movie.movieId}`)"
+          >
             <span class="rank" :class="{ 'top3': index < 3 }">{{ index + 1 }}</span>
+            <img v-if="movie.poster" class="poster" :src="movie.poster" alt="" />
             <span class="title">{{ movie.title }}</span>
             <span class="revenue">¥{{ formatMoney(movie.revenue) }}</span>
           </div>
@@ -119,43 +147,51 @@ function formatMoney(amount) {
   font-size: 14px;
 }
 
-/* 今日票房 */
-.total-revenue {
-  text-align: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+/* 标签切换 */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 3px;
 }
 
-.total-revenue .label {
-  display: block;
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 7px 0;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.total-revenue .amount {
-  font-size: 28px;
-  font-weight: 700;
-  color: #ff6b6b;
+.tab.active {
+  background: #fff;
+  color: #e53935;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* 电影列表 */
 .movie-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
 }
 
 .movie-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 8px;
 }
 
 .movie-item.clickable {
   cursor: pointer;
-  padding: 8px;
   border-radius: 8px;
   transition: background 0.2s;
 }
@@ -183,20 +219,30 @@ function formatMoney(amount) {
   color: #fff;
 }
 
-.movie-item .title {
+.poster {
+  width: 36px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.title {
   flex: 1;
   font-size: 14px;
   color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
-.movie-item .revenue {
+.revenue {
   font-size: 13px;
-  color: #ff6b6b;
+  color: #e53935;
   font-weight: 600;
   flex-shrink: 0;
+  margin-left: 8px;
 }
 
 /* 最受期待 */
@@ -213,14 +259,14 @@ function formatMoney(amount) {
   padding: 8px 0;
 }
 
-.movie-info {
+.expected-content .movie-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.movie-info .title {
+.expected-content .movie-info .title {
   font-size: 14px;
   color: #333;
   overflow: hidden;
@@ -228,7 +274,7 @@ function formatMoney(amount) {
   white-space: nowrap;
 }
 
-.movie-info .wish-count {
+.wish-count {
   font-size: 12px;
   color: #ff9800;
 }

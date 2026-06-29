@@ -25,6 +25,12 @@ public class NotificationController {
         return ApiResult.success(notificationService.getNotificationList(userId, page, size));
     }
 
+    @GetMapping("/unread-count")
+    public ApiResult<?> getUnreadCount(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        return ApiResult.success(notificationService.countUnread(userId));
+    }
+
     @PutMapping("/{id}/read")
     public ApiResult<?> markAsRead(HttpServletRequest request, @PathVariable Long id) {
         Long userId = (Long) request.getAttribute("userId");

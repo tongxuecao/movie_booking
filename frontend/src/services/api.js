@@ -93,7 +93,12 @@ export function apiToggleWish(movieId) { return post(`/movie/${movieId}/wish`) }
 export function apiGetWishStatus(movieId) { return get(`/movie/${movieId}/wish-status`) }
 
 // ==================== 票房 ====================
-export function apiGetTodayBoxOffice() { return get('/box-office/today') }
+export function apiGetBoxOffice(type = 'today') { return get('/box-office/today', { type }) }
+
+// ==================== 通知 ====================
+export function apiGetNotifications(params) { return get('/notification/list', params) }
+export function apiGetUnreadCount() { return get('/notification/unread-count') }
+export function apiMarkRead(id) { return put(`/notification/${id}/read`) }
 
 // ==================== 评价 ====================
 export function apiCreateReview(data) { return post('/review', data) }
@@ -115,6 +120,7 @@ export function apiGetOrderStatus(orderNo) { return get(`/order/status/${orderNo
 export function apiGetOrder(orderNo) { return get(`/order/${orderNo}`) }
 export function apiGetOrders(params) { return get('/order/list', params) }
 export function apiCancelOrder(orderNo) { return post(`/order/cancel/${orderNo}`) }
+export function apiCancelPreview(orderNo) { return get(`/order/cancel-preview/${orderNo}`) }
 export function apiPayOrder(orderNo, password) { return post(`/order/pay/${orderNo}`, password ? { password } : undefined) }
 
 // ==================== 管理员 ====================

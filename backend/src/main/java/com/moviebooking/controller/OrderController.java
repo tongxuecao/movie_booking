@@ -60,6 +60,12 @@ public class OrderController {
         return ApiResult.success("退票成功，退款已到账", orderService.cancelOrder(orderNo, userId));
     }
 
+    @GetMapping("/cancel-preview/{orderNo}")
+    public ApiResult<?> previewCancel(HttpServletRequest request, @PathVariable String orderNo) {
+        Long userId = (Long) request.getAttribute("userId");
+        return ApiResult.success(orderService.previewCancel(orderNo, userId));
+    }
+
     @PostMapping("/pay/{orderNo}")
     public ApiResult<?> payOrder(HttpServletRequest request, @PathVariable String orderNo, @RequestBody(required = false) PayOrderRequest body) {
         Long userId = (Long) request.getAttribute("userId");

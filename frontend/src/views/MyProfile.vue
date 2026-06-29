@@ -76,13 +76,41 @@ function fmtAmount(v) {
 
 async function handleCancel(orderNo) {
   try {
-    await ElMessageBox.confirm('确定要取消该订单吗？取消后座位将被释放，余额将退回。', '取消订单', { confirmButtonText: '确认取消', cancelButtonText: '暂不取消', type: 'warning' })
+    // Step 1: 获取退票预览（手续费、实际退款金额）
+    const preview = await orderStore.previewCancel(orderNo)
+
+    const hoursUntil = Math.floor(preview.minutesUntilShowtime / 60)
+    const minsUntil = preview.minutesUntilShowtime % 60
+    const timeDesc = hoursUntil > 0
+      ? `${hoursUntil} 小时 ${minsUntil} 分钟`
+      : `${minsUntil} 分钟`
+
+    const feeRateStr = preview.feeRate > 0 ? `${preview.feeRate}%` : '免费'
+    const message = `
+      <div style="line-height:2.2;">
+        <p><b>电影：</b>${preview.movieTitle}</p>
+        <p><b>场次：</b>${preview.showDate} ${preview.showTime}</p>
+        <p><b>距开场：</b>${timeDesc}</p>
+        <hr />
+        <p><b>原票价：</b>&yen;${fmtAmount(preview.totalAmount)}</p>
+        <p><b>手续费（${feeRateStr}）：</b>&yen;${fmtAmount(preview.fee)}</p>
+        <p style="color:#e53935;font-weight:700;"><b>实际退款：</b>&yen;${fmtAmount(preview.refundAmount)}</p>
+      </div>`
+
+    await ElMessageBox.confirm(message, '确认退票', {
+      confirmButtonText: '确认退票',
+      cancelButtonText: '暂不退票',
+      type: 'warning',
+      dangerouslyUseHTMLString: true
+    })
+
+    // Step 2: 执行退票
     const res = await orderStore.cancelOrder(orderNo)
-    ElMessage.success('订单已取消')
+    ElMessage.success('退票成功，退款已到账')
     if (res?.walletBalance !== undefined) auth.refreshProfile()
     await orderStore.fetchOrders()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '取消失败')
+    if (e !== 'cancel') ElMessage.error(e.message || '退票失败')
   }
 }
 

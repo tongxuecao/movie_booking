@@ -5,6 +5,7 @@ import com.moviebooking.common.PageResult;
 import com.moviebooking.dto.CreateOrderRequest;
 import com.moviebooking.dto.LockSeatsRequest;
 import com.moviebooking.entity.*;
+import com.moviebooking.entity.enums.NotificationType;
 import com.moviebooking.entity.enums.OrderStatus;
 import com.moviebooking.entity.enums.SeatType;
 import com.moviebooking.redis.OrderStreamProducer;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -38,6 +40,8 @@ public class OrderService {
     private final MovieRepository movieRepository;
     private final HallRepository hallRepository;
     private final CinemaRepository cinemaRepository;
+    private final BoxOfficeService boxOfficeService;
+    private final NotificationService notificationService;
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -47,7 +51,8 @@ public class OrderService {
                         SeatRepository seatRepository, SeatLockService seatLockService,
                         OrderStreamProducer orderStreamProducer, UserRepository userRepository,
                         MovieRepository movieRepository, HallRepository hallRepository,
-                        CinemaRepository cinemaRepository) {
+                        CinemaRepository cinemaRepository, BoxOfficeService boxOfficeService,
+                        NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.orderSeatRepository = orderSeatRepository;
         this.paymentRepository = paymentRepository;
@@ -59,6 +64,8 @@ public class OrderService {
         this.movieRepository = movieRepository;
         this.hallRepository = hallRepository;
         this.cinemaRepository = cinemaRepository;
+        this.boxOfficeService = boxOfficeService;
+        this.notificationService = notificationService;
     }
 
     public Map<String, Object> lockSeats(Long userId, LockSeatsRequest request) {
@@ -270,6 +277,16 @@ public class OrderService {
         List<Long> seatIds = orderSeats.stream().map(OrderSeat::getSeatId).toList();
         seatLockService.releaseUserLock(userId);
 
+        // 发送购票成功通知
+        Showtime st = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
+        Movie mv = st != null ? movieRepository.findById(st.getMovieId()).orElse(null) : null;
+        if (mv != null) {
+            notificationService.create(userId, "购票成功",
+                "您购买的《" + mv.getTitle() + "》" + st.getShowDate() + " " + st.getShowTime() +
+                " 场次已支付成功，" + orderSeats.size() + "张票共 ¥" + order.getTotalAmount(),
+                NotificationType.order);
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", orderNo);
         result.put("status", "paid");
@@ -290,8 +307,15 @@ public class OrderService {
             throw BusinessException.badRequest("只有已支付的订单可以退票");
         }
 
-        // 退款到钱包
-        userRepository.addBalance(userId, order.getTotalAmount());
+        Showtime showtime = showtimeRepository.findById(order.getShowtimeId())
+                .orElseThrow(() -> BusinessException.notFound("场次不存在"));
+
+        Map<String, Object> breakdown = calculateRefundBreakdown(order, showtime);
+        BigDecimal refundAmount = (BigDecimal) breakdown.get("refundAmount");
+        BigDecimal fee = (BigDecimal) breakdown.get("fee");
+
+        // 退款到钱包（扣手续费）
+        userRepository.addBalance(userId, refundAmount);
 
         // 更新订单状态
         order.setStatus(OrderStatus.refunded);
@@ -301,20 +325,62 @@ public class OrderService {
         Payment payment = new Payment();
         payment.setOrderId(order.getId());
         payment.setUserId(userId);
-        payment.setAmount(order.getTotalAmount().negate());
+        payment.setAmount(refundAmount.negate());
+        payment.setFee(fee);
         payment.setStatus(com.moviebooking.entity.enums.PaymentStatus.refunded);
         paymentRepository.save(payment);
 
         // 释放用户锁（如果还在）
         seatLockService.releaseUserLock(userId);
 
+        // 清除票房缓存，确保退款后首页数据实时更新
+        boxOfficeService.clearCache();
+
+        // 发送退票通知
+        Movie refundMovie = movieRepository.findById(showtime.getMovieId()).orElse(null);
+        if (refundMovie != null) {
+            notificationService.create(userId, "退票成功",
+                "《" + refundMovie.getTitle() + "》已退票，退款 ¥" + refundAmount +
+                " 已到账" + (fee.compareTo(BigDecimal.ZERO) > 0 ? "（手续费 ¥" + fee + "）" : ""),
+                NotificationType.order);
+        }
+
         User user = userRepository.findById(userId).orElseThrow();
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", orderNo);
-        result.put("refundAmount", order.getTotalAmount());
+        result.put("totalAmount", order.getTotalAmount());
+        result.put("feeRate", breakdown.get("feeRate"));
+        result.put("fee", fee);
+        result.put("refundAmount", refundAmount);
         result.put("walletBalance", user.getWalletBalance());
         return result;
+    }
+
+    public Map<String, Object> previewCancel(String orderNo, Long userId) {
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> BusinessException.notFound("订单不存在"));
+
+        if (!order.getUserId().equals(userId)) {
+            throw BusinessException.badRequest("无权操作此订单");
+        }
+
+        if (order.getStatus() != OrderStatus.paid) {
+            throw BusinessException.badRequest("只有已支付的订单可以退票");
+        }
+
+        Showtime showtime = showtimeRepository.findById(order.getShowtimeId())
+                .orElseThrow(() -> BusinessException.notFound("场次不存在"));
+
+        Movie movie = movieRepository.findById(showtime.getMovieId())
+                .orElseThrow(() -> BusinessException.notFound("电影不存在"));
+
+        Map<String, Object> breakdown = calculateRefundBreakdown(order, showtime);
+        breakdown.put("orderNo", orderNo);
+        breakdown.put("movieTitle", movie.getTitle());
+        breakdown.put("showDate", showtime.getShowDate());
+        breakdown.put("showTime", showtime.getShowTime());
+        return breakdown;
     }
 
     // --- Admin methods ---
@@ -338,6 +404,38 @@ public class OrderService {
     }
 
     // --- Private helpers ---
+
+    private Map<String, Object> calculateRefundBreakdown(Order order, Showtime showtime) {
+        BigDecimal totalAmount = order.getTotalAmount();
+        LocalDateTime showtimeDateTime = LocalDateTime.of(showtime.getShowDate(), showtime.getShowTime());
+        long minutesUntil = Duration.between(LocalDateTime.now(), showtimeDateTime).toMinutes();
+
+        if (minutesUntil <= 0) {
+            throw BusinessException.badRequest("该场次已开场，无法退票");
+        }
+
+        BigDecimal feeRate;
+        if (minutesUntil > 24 * 60) {
+            feeRate = BigDecimal.ZERO;
+        } else if (minutesUntil > 2 * 60) {
+            feeRate = new BigDecimal("0.05");
+        } else if (minutesUntil > 30) {
+            feeRate = new BigDecimal("0.20");
+        } else {
+            feeRate = new BigDecimal("0.50");
+        }
+
+        BigDecimal fee = totalAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal refundAmount = totalAmount.subtract(fee);
+
+        Map<String, Object> breakdown = new HashMap<>();
+        breakdown.put("totalAmount", totalAmount);
+        breakdown.put("feeRate", feeRate.multiply(new BigDecimal("100")).intValue());
+        breakdown.put("fee", fee);
+        breakdown.put("refundAmount", refundAmount);
+        breakdown.put("minutesUntilShowtime", minutesUntil);
+        return breakdown;
+    }
 
     private Map<String, Object> buildOrderDetail(Order order) {
         Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
