@@ -37,9 +37,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 软认证：/review/status/* 有token解析userId，无token不拦截
+        // 软认证：有token解析userId，无token不拦截
         registry.addInterceptor(softAuthInterceptor)
-                .addPathPatterns("/review/status/*")
+                .addPathPatterns("/review/status/*", "/movie/*/wish-status")
                 .order(0);
 
         // 硬认证：其他需要登录的接口
@@ -51,6 +51,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/admin/login",
                         "/movie/list",
                         "/movie/most-expected",
+                        "/movie/*",
                         "/movie/*/wish-status",
                         "/box-office/today",
                         "/cinema/list",

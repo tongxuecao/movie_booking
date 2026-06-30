@@ -91,6 +91,7 @@ export function apiGetMovie(id) { return get(`/movie/${id}`) }
 export function apiGetMostExpectedMovies(limit = 5) { return get('/movie/most-expected', { limit }) }
 export function apiToggleWish(movieId) { return post(`/movie/${movieId}/wish`) }
 export function apiGetWishStatus(movieId) { return get(`/movie/${movieId}/wish-status`) }
+export function apiGetUserWishList() { return get('/movie/user/wish-list') }
 
 // ==================== 票房 ====================
 export function apiGetBoxOffice(type = 'today') { return get('/box-office/today', { type }) }
@@ -145,6 +146,7 @@ export function apiUpdateHall(id, data) { return put(`/admin/hall/${id}`, data) 
 export function apiDeleteHall(id) { return del(`/admin/hall/${id}`) }
 export function apiCreateHall(data) { return post('/admin/hall', data) }
 export function apiGetAdminOrders(params) { return get('/admin/order/list', params) }
+export function apiGetAdminOrderDetail(orderNo) { return get(`/admin/order/${orderNo}`) }
 export function apiGetStatistics() { return get('/admin/statistics') }
 // ==================== 管理员 - 用户管理 ====================
 export function apiGetAdminUsers(params) { return get('/admin/user/list', params) }

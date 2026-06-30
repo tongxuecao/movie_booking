@@ -385,13 +385,15 @@ public class OrderService {
 
     // --- Admin methods ---
 
-    public PageResult<Map<String, Object>> getAdminOrderList(String status, int page, int size) {
+    public PageResult<Map<String, Object>> getAdminOrderList(String status, String keyword, int page, int size) {
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        OrderStatus orderStatus = (status != null && !status.isEmpty()) ? OrderStatus.valueOf(status) : null;
+        PageRequest pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
         Page<Order> orderPage;
-        if (status != null && !status.isEmpty()) {
-            OrderStatus orderStatus = OrderStatus.valueOf(status);
-            orderPage = orderRepository.findByStatus(orderStatus, PageRequest.of(page - 1, size, Sort.by("createdAt").descending()));
+        if (kw != null || orderStatus != null) {
+            orderPage = orderRepository.searchOrders(orderStatus, kw, pageable);
         } else {
-            orderPage = orderRepository.findAll(PageRequest.of(page - 1, size, Sort.by("createdAt").descending()));
+            orderPage = orderRepository.findAll(pageable);
         }
         var list = orderPage.getContent().stream().map(this::toOrderBrief).toList();
         return new PageResult<>(list, orderPage.getTotalElements(), page, size);
@@ -400,7 +402,11 @@ public class OrderService {
     public Map<String, Object> getAdminOrderDetail(String orderNo) {
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> BusinessException.notFound("订单不存在"));
-        return buildOrderDetail(order);
+        Map<String, Object> detail = buildOrderDetail(order);
+        User user = userRepository.findById(order.getUserId()).orElse(null);
+        detail.put("username", user != null ? user.getUsername() : null);
+        detail.put("phone", user != null ? maskPhone(user.getPhone()) : null);
+        return detail;
     }
 
     // --- Private helpers ---
@@ -492,7 +498,15 @@ public class OrderService {
         map.put("seatCount", orderSeats.size());
         map.put("totalAmount", order.getTotalAmount());
         map.put("createdAt", order.getCreatedAt());
+        User orderUser = userRepository.findById(order.getUserId()).orElse(null);
+        map.put("username", orderUser != null ? orderUser.getUsername() : null);
+        map.put("phone", orderUser != null ? maskPhone(orderUser.getPhone()) : null);
         return map;
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
     private BigDecimal calculateSeatPrice(BigDecimal basePrice, SeatType seatType) {

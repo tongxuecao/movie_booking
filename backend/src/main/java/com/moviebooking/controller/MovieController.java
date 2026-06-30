@@ -52,4 +52,10 @@ public class MovieController {
         Long userId = (Long) request.getAttribute("userId");
         return ApiResult.success(wishService.getWishStatus(userId, id));
     }
+
+    @GetMapping("/user/wish-list")
+    public ApiResult<?> getUserWishList(jakarta.servlet.http.HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        return ApiResult.success(wishService.getUserWishList(userId));
+    }
 }

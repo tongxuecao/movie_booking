@@ -3,8 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { useOrderStore } from '../stores/orders.js'
-import { apiUpdateProfile, apiChangePassword, apiUploadImage, apiRecharge } from '../services/api.js'
+import { apiUpdateProfile, apiChangePassword, apiUploadImage, apiRecharge, apiGetUserWishList, apiToggleWish } from '../services/api.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import BuyTicket from '../components/BuyTicket.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -37,16 +38,36 @@ const showRechargeDialog = ref(false)
 const rechargeForm = ref({ amount: '', password: '' })
 const rechargeLoading = ref(false)
 
+// 想看
+const wishList = ref([])
+const buyMovie = ref(null)
+
+const showingWishes = computed(() => wishList.value.filter(m => m.status === 'showing'))
+const upcomingWishes = computed(() => wishList.value.filter(m => m.status !== 'showing'))
+
 onMounted(async () => {
   try {
     await Promise.all([
       orderStore.fetchOrders(),
       auth.refreshProfile(),
+      fetchWishList(),
     ])
   } catch {} finally {
     loading.value = false
   }
 })
+
+async function fetchWishList() {
+  try { wishList.value = await apiGetUserWishList() } catch { wishList.value = [] }
+}
+
+async function removeWish(movieId) {
+  try {
+    await apiToggleWish(movieId)
+    wishList.value = wishList.value.filter(m => m.id !== movieId)
+    ElMessage.success('已移除')
+  } catch (e) { ElMessage.error(e.message || '操作失败') }
+}
 
 const statusLabels = { pending: '待支付', paid: '已支付', processing: '处理中', cancelled: '已取消', failed: '支付失败', refunded: '已退款' }
 const statusClasses = { pending: 'status-pending', paid: 'status-paid', processing: 'status-processing', cancelled: 'status-cancelled', failed: 'status-failed', refunded: 'status-refunded' }
@@ -282,6 +303,7 @@ async function handlePasswordSave() {
 const menuItems = [
   { key: 'profile', label: '个人资料', icon: '👤' },
   { key: 'orders', label: '购票记录', icon: '🎫' },
+  { key: 'wish', label: '想看', icon: '❤️' },
   { key: 'wallet', label: '我的钱包', icon: '💰' },
 ]
 </script>
@@ -370,6 +392,51 @@ const menuItems = [
             <router-link to="/" class="btn-go">去逛逛</router-link>
           </div>
           <div v-else class="loading">加载中...</div>
+        </div>
+
+        <!-- 想看 -->
+        <div v-if="activeSection === 'wish'" class="section">
+          <h3 class="section-title">想看</h3>
+          <div v-if="wishList.length">
+            <div v-if="showingWishes.length" class="wish-group">
+              <h4 class="wish-group-title">🎬 热映中</h4>
+              <div class="wish-cards">
+                <div v-for="m in showingWishes" :key="m.id" class="wish-card">
+                  <img v-if="m.poster" :src="m.poster" :alt="m.title" class="wish-poster" />
+                  <div v-else class="wish-no-poster">🎬</div>
+                  <div class="wish-info">
+                    <div class="wish-title">{{ m.title }}</div>
+                    <div class="wish-meta">★ {{ m.rating || '-' }} · {{ m.wishCount }}人想看</div>
+                    <div class="wish-actions">
+                      <button class="btn-wish-buy" @click="buyMovie = m">立即购票</button>
+                      <button class="btn-wish-remove" @click="removeWish(m.id)">移除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="upcomingWishes.length" class="wish-group">
+              <h4 class="wish-group-title">📅 即将上映</h4>
+              <div class="wish-cards">
+                <div v-for="m in upcomingWishes" :key="m.id" class="wish-card">
+                  <img v-if="m.poster" :src="m.poster" :alt="m.title" class="wish-poster" />
+                  <div v-else class="wish-no-poster">🎬</div>
+                  <div class="wish-info">
+                    <div class="wish-title">{{ m.title }}</div>
+                    <div class="wish-meta">{{ m.releaseDate }} · {{ m.wishCount }}人想看</div>
+                    <div class="wish-actions">
+                      <button class="btn-wish-remove" @click="removeWish(m.id)">移除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="!loading" class="empty-state">
+            <div class="empty-icon">❤️</div>
+            <p>还没有想看的电影</p>
+            <router-link to="/" class="btn-go">去逛逛</router-link>
+          </div>
         </div>
 
         <!-- 我的钱包 -->
@@ -505,6 +572,9 @@ const menuItems = [
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 购票弹窗 -->
+    <BuyTicket v-if="buyMovie" :movie="buyMovie" @close="buyMovie = null" @need-login="buyMovie = null" />
 
     <!-- 支付弹窗（模拟微信支付） -->
     <Teleport to="body">
@@ -674,6 +744,23 @@ const menuItems = [
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* 想看 */
+.wish-group { margin-bottom: 24px; }
+.wish-group-title { font-size: 15px; color: #333; margin-bottom: 12px; font-weight: 600; }
+.wish-cards { display: flex; flex-direction: column; gap: 10px; }
+.wish-card { display: flex; gap: 14px; background: #f9fafb; border-radius: 10px; padding: 14px; align-items: center; transition: box-shadow 0.2s; }
+.wish-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.wish-poster { width: 56px; height: 76px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.wish-no-poster { width: 56px; height: 76px; background: #eee; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.wish-info { flex: 1; min-width: 0; }
+.wish-title { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wish-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
+.wish-actions { display: flex; gap: 8px; }
+.btn-wish-buy { padding: 5px 16px; background: #d32f2f; color: #fff; font-size: 12px; border-radius: 14px; transition: all 0.2s; }
+.btn-wish-buy:hover { background: #b71c1c; }
+.btn-wish-remove { padding: 5px 14px; background: none; border: 1px solid #e0e0e0; color: #999; font-size: 12px; border-radius: 14px; transition: all 0.2s; }
+.btn-wish-remove:hover { border-color: #e53935; color: #e53935; }
 
 @media (max-width: 768px) {
   .profile-layout { flex-direction: column; }

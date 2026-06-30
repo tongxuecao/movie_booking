@@ -63,7 +63,12 @@ public class CinemaService {
         hall.setHallType(HallType.valueOf(request.getHallType()));
         hall = hallRepository.save(hall);
 
-        // 自动生成座位（全部为 normal）
+        // 根据影厅类型自动设置座位类型
+        SeatType seatType = switch (hall.getHallType()) {
+            case vip -> SeatType.vip;
+            case couple -> SeatType.couple;
+            default -> SeatType.normal;
+        };
         List<Seat> seats = new ArrayList<>();
         for (int row = 1; row <= request.getSeatRows(); row++) {
             for (int col = 1; col <= request.getSeatCols(); col++) {
@@ -71,7 +76,7 @@ public class CinemaService {
                 seat.setHallId(hall.getId());
                 seat.setRowNum(row);
                 seat.setColNum(col);
-                seat.setSeatType(SeatType.normal);
+                seat.setSeatType(seatType);
                 seat.setStatus(SeatStatus.active);
                 seats.add(seat);
             }
@@ -108,6 +113,7 @@ public class CinemaService {
         cinemaRepository.deleteById(id);
     }
 
+    @Transactional
     public void updateHall(Long id, HallRequest request) {
         Hall hall = hallRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("影厅不存在"));
@@ -116,7 +122,18 @@ public class CinemaService {
         if (request.getSeatCols() != null) hall.setSeatCols(request.getSeatCols());
         if (request.getHallType() != null) {
             try {
-                hall.setHallType(HallType.valueOf(request.getHallType()));
+                HallType newType = HallType.valueOf(request.getHallType());
+                if (!newType.equals(hall.getHallType())) {
+                    hall.setHallType(newType);
+                    SeatType seatType = switch (newType) {
+                        case vip -> SeatType.vip;
+                        case couple -> SeatType.couple;
+                        default -> SeatType.normal;
+                    };
+                    List<Seat> seats = seatRepository.findByHallIdOrderByRowNumAscColNumAsc(id);
+                    for (Seat seat : seats) seat.setSeatType(seatType);
+                    seatRepository.saveAll(seats);
+                }
             } catch (IllegalArgumentException e) {
                 throw BusinessException.badRequest("无效的影厅类型: " + request.getHallType());
             }

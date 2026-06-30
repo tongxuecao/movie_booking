@@ -57,6 +57,41 @@ const stDateFilter = ref('')
 const stPage = ref(1)
 const stTotal = ref(0)
 const ST_PAGE_SIZE = 10
+const selectedIds = ref(new Set())
+const allSelected = computed(() => adminShowtimes.value.length > 0 && adminShowtimes.value.every(s => selectedIds.value.has(s.id)))
+
+function toggleSelect(id) {
+  const s = new Set(selectedIds.value)
+  s.has(id) ? s.delete(id) : s.add(id)
+  selectedIds.value = s
+}
+
+function toggleSelectAll() {
+  selectedIds.value = allSelected.value ? new Set() : new Set(adminShowtimes.value.map(s => s.id))
+}
+
+async function handleBatchDelete() {
+  const ids = [...selectedIds.value]
+  if (!ids.length) { ElMessage.warning('请选择排片'); return }
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${ids.length} 场排片吗？`, '批量删除', { type: 'warning', confirmButtonText: '确认删除' })
+  } catch { return }
+  let ok = 0, fail = 0
+  for (const id of ids) {
+    try {
+      await apiDeleteShowtime(id)
+      ok++
+    } catch (e) {
+      fail++
+      ElMessage.error(e.message || '删除失败')
+      break
+    }
+  }
+  if (fail === 0) ElMessage.success(`成功删除 ${ok} 场排片`)
+  else if (ok > 0) ElMessage.warning(`成功 ${ok} 场，失败 ${fail} 场`)
+  selectedIds.value = new Set()
+  loadShowtimes()
+}
 
 onMounted(() => {
   movieStore.fetchMovies({ size: 100 })
@@ -141,15 +176,19 @@ async function handleShowtimeDelete(st) {
           </el-select>
           <el-date-picker v-model="stDateFilter" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" clearable @change="stPage = 1; loadShowtimes()" />
         </div>
-        <button class="btn-add" @click="openStAdd">+ 添加排片</button>
+        <div class="toolbar-actions">
+          <button v-if="selectedIds.size" class="btn-batch-del" @click="handleBatchDelete">删除选中（{{ selectedIds.size }}）</button>
+          <button class="btn-add" @click="openStAdd">+ 添加排片</button>
+        </div>
       </div>
     </div>
     <div v-if="showtimesLoading" class="empty">加载中...</div>
     <div v-else-if="adminShowtimes.length" class="table-wrap">
       <table>
-        <thead><tr><th>电影</th><th>影院</th><th>影厅</th><th>日期</th><th>时间</th><th>票价</th><th>操作</th></tr></thead>
+        <thead><tr><th style="width:40px"><input type="checkbox" :checked="allSelected" @change="toggleSelectAll" /></th><th>电影</th><th>影院</th><th>影厅</th><th>日期</th><th>时间</th><th>票价</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="st in adminShowtimes" :key="st.id">
+            <td><input type="checkbox" :checked="selectedIds.has(st.id)" @change="toggleSelect(st.id)" /></td>
             <td>{{ st.movieTitle }}</td>
             <td>{{ st.cinemaName }}</td>
             <td>{{ st.hallName }}</td>
@@ -262,6 +301,7 @@ async function handleShowtimeDelete(st) {
   align-items: center;
 }
 
+.toolbar-actions { display: flex; gap: 10px; align-items: center; }
 .btn-add {
   padding: 8px 20px;
   background: #d32f2f;
@@ -275,6 +315,22 @@ async function handleShowtimeDelete(st) {
 
 .btn-add:hover {
   background: #b71c1c;
+}
+
+.btn-batch-del {
+  padding: 8px 16px;
+  background: #fff;
+  color: #e53935;
+  font-size: 13px;
+  border: 1px solid #e53935;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-batch-del:hover { background: #fce4ec; }
+
+th input[type="checkbox"], td input[type="checkbox"] {
+  width: 16px; height: 16px; cursor: pointer; accent-color: #d32f2f;
 }
 
 .table-wrap {

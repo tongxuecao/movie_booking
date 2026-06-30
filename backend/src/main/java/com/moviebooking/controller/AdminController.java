@@ -138,9 +138,10 @@ public class AdminController {
     @GetMapping("/order/list")
     public ApiResult<?> getAdminOrderList(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ApiResult.success(orderService.getAdminOrderList(status, page, size));
+        return ApiResult.success(orderService.getAdminOrderList(status, keyword, page, size));
     }
 
     @GetMapping("/order/{orderNo}")

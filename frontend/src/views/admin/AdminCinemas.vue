@@ -205,6 +205,7 @@ async function handleCinemaDelete(cinema) {
                 <option value="normal">普通厅</option>
                 <option value="imax">IMAX</option>
                 <option value="vip">VIP</option>
+                <option value="couple">情侣厅</option>
                 <option value="threeD">3D</option>
               </select>
             </div>

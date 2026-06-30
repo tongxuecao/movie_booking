@@ -52,4 +52,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT o FROM Order o WHERE o.status = :status AND o.showtimeId IN (SELECT s.id FROM Showtime s WHERE s.showDate <= :date)")
     List<Order> findCumulativePaidOrders(@Param("status") OrderStatus status, @Param("date") LocalDate date);
+
+    @Query("SELECT o FROM Order o, User u WHERE o.userId = u.id " +
+           "AND (:status IS NULL OR o.status = :status) " +
+           "AND (:keyword IS NULL OR u.username LIKE %:keyword% OR u.phone LIKE %:keyword%)")
+    Page<Order> searchOrders(@Param("status") OrderStatus status, @Param("keyword") String keyword, Pageable pageable);
 }

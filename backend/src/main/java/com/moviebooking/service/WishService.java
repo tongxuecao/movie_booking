@@ -20,6 +20,7 @@ public class WishService {
     private static final Logger log = LoggerFactory.getLogger(WishService.class);
     private static final String WISH_KEY_PREFIX = "movie:wish:";
     private static final String WISH_COUNT_PREFIX = "movie:wish:count:";
+    private static final String USER_WISH_PREFIX = "user:wish:";
 
     private final MovieRepository movieRepository;
     private final StringRedisTemplate redisTemplate;
@@ -43,11 +44,13 @@ public class WishService {
         if (Boolean.TRUE.equals(isMember)) {
             // 取消想看
             redisTemplate.opsForSet().remove(wishKey, String.valueOf(userId));
+            redisTemplate.opsForSet().remove(USER_WISH_PREFIX + userId, String.valueOf(movieId));
             redisTemplate.opsForValue().decrement(WISH_COUNT_PREFIX + movieId);
             return Map.of("wishCount", getWishCount(movieId), "isWished", false);
         } else {
             // 添加想看
             redisTemplate.opsForSet().add(wishKey, String.valueOf(userId));
+            redisTemplate.opsForSet().add(USER_WISH_PREFIX + userId, String.valueOf(movieId));
             redisTemplate.opsForValue().increment(WISH_COUNT_PREFIX + movieId);
             return Map.of("wishCount", getWishCount(movieId), "isWished", true);
         }
@@ -82,6 +85,39 @@ public class WishService {
         // 从Redis Set获取实际数量
         Long count = redisTemplate.opsForSet().size(WISH_KEY_PREFIX + movieId);
         return count != null ? count : 0;
+    }
+
+    /**
+     * 获取用户想看列表
+     */
+    public List<Map<String, Object>> getUserWishList(Long userId) {
+        Set<String> movieIds = redisTemplate.opsForSet().members(USER_WISH_PREFIX + userId);
+        if (movieIds == null || movieIds.isEmpty()) return List.of();
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String id : movieIds) {
+            Movie movie = movieRepository.findById(Long.valueOf(id)).orElse(null);
+            if (movie == null) continue;
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", movie.getId());
+            m.put("title", movie.getTitle());
+            m.put("poster", movie.getPoster());
+            m.put("genre", movie.getGenre());
+            m.put("duration", movie.getDuration());
+            m.put("status", movie.getStatus().name());
+            m.put("releaseDate", movie.getReleaseDate());
+            m.put("rating", movie.getRating());
+            m.put("wishCount", getWishCount(movie.getId()));
+            result.add(m);
+        }
+        result.sort((a, b) -> {
+            String sa = (String) a.get("status");
+            String sb = (String) b.get("status");
+            if ("showing".equals(sa) && !"showing".equals(sb)) return -1;
+            if (!"showing".equals(sa) && "showing".equals(sb)) return 1;
+            return Long.compare((long) b.get("wishCount"), (long) a.get("wishCount"));
+        });
+        return result;
     }
 
     /**
