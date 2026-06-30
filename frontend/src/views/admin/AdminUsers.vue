@@ -104,7 +104,7 @@ async function handleToggleStatus(user) {
 
     <!-- EDIT MODAL -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+      <div v-if="showEditModal" class="modal-overlay">
         <div class="modal">
           <div class="modal-head"><h3>编辑用户 — {{ editingUser.username }}</h3><button class="btn-close" @click="showEditModal = false">&times;</button></div>
           <div class="modal-body">

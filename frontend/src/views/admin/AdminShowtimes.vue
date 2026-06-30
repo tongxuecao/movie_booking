@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useMovieStore } from '../../stores/movies.js'
 import { useCinemaStore } from '../../stores/cinemas.js'
 import { apiCreateShowtime, apiGetAdminShowtimes, apiDeleteShowtime, apiGetCinemaHalls } from '../../services/api.js'
@@ -9,8 +9,46 @@ const movieStore = useMovieStore()
 const cinemaStore = useCinemaStore()
 
 const showStForm = ref(false)
-const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', showDate: '', startTime: '09:00', interval: 2.5, count: 3, price: 49.9 })
 const selectedMovie = computed(() => movieStore.movies.find(m => m.id === stForm.movieId))
+const suggestedInterval = computed(() => {
+  const d = selectedMovie.value?.duration || 120
+  return Math.ceil((d + 30) / 30) * 0.5
+})
+const generatedTimes = ref([])
+const intervalPreset = ref(null)
+
+function getInterval() {
+  if (intervalPreset.value === 'custom') return stForm.interval
+  if (intervalPreset.value != null) return intervalPreset.value
+  return stForm.interval
+}
+
+function regenerateTimes() {
+  const start = stForm.startTime
+  const interval = getInterval()
+  const count = stForm.count
+  if (!start || !interval || !count || count < 1) { generatedTimes.value = []; return }
+  const [h, m] = start.split(':').map(Number)
+  let total = h * 60 + m
+  const result = []
+  for (let i = 0; i < count; i++) {
+    const hh = Math.floor(total / 60) % 24
+    const mm = total % 60
+    result.push(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'))
+    total += Math.round(interval * 60)
+  }
+  generatedTimes.value = result
+}
+
+function removeTime(index) { generatedTimes.value.splice(index, 1) }
+
+watch([() => stForm.startTime, () => stForm.interval, () => stForm.count, intervalPreset], () => {
+  if (intervalPreset.value === null) stForm.interval = suggestedInterval.value
+  regenerateTimes()
+}, { deep: false })
+watch(() => stForm.movieId, () => { if (stForm.movieId) { stForm.interval = suggestedInterval.value; intervalPreset.value = null } })
+
 const halls = ref([])
 const adminShowtimes = ref([])
 const showtimesLoading = ref(false)
@@ -39,8 +77,10 @@ async function loadShowtimes() {
 }
 
 function openStAdd() {
-  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', cinemaId: '', hallId: '', showDate: '', showTime: '14:30', price: 49.9 })
+  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', cinemaId: '', hallId: '', showDate: '', startTime: '09:00', interval: suggestedInterval.value, count: 3, price: 49.9 })
+  intervalPreset.value = null
   halls.value = []
+  regenerateTimes()
   showStForm.value = true
 }
 
@@ -56,17 +96,27 @@ async function onCinemaChange() {
 }
 
 async function handleStSave() {
-  if (!stForm.movieId || !stForm.hallId || !stForm.showDate || !stForm.showTime) { ElMessage.warning('请填写完整信息'); return }
+  if (!stForm.movieId || !stForm.hallId || !stForm.showDate) { ElMessage.warning('请填写完整信息'); return }
   if (selectedMovie.value?.releaseDate && stForm.showDate < selectedMovie.value.releaseDate) {
     ElMessage.warning('拍片日期不能早于电影上映日期（' + selectedMovie.value.releaseDate + '）')
     return
   }
-  try {
-    await apiCreateShowtime({ movieId: Number(stForm.movieId), hallId: Number(stForm.hallId), showDate: stForm.showDate, showTime: stForm.showTime, price: Number(stForm.price) })
-    ElMessage.success('排片成功')
-    showStForm.value = false
-    loadShowtimes()
-  } catch (e) { ElMessage.error(e.message || '排片失败') }
+  if (generatedTimes.value.length === 0) { ElMessage.warning('请至少添加一个场次时间'); return }
+  let ok = 0, fail = 0
+  for (const time of generatedTimes.value) {
+    try {
+      await apiCreateShowtime({ movieId: Number(stForm.movieId), hallId: Number(stForm.hallId), showDate: stForm.showDate, showTime: time, price: Number(stForm.price) })
+      ok++
+    } catch (e) {
+      fail++
+      ElMessage.error(time + ' ' + (e.message || '添加失败'))
+      break
+    }
+  }
+  if (fail === 0) ElMessage.success(`成功添加 ${ok} 场排片`)
+  else if (ok > 0) ElMessage.warning(`成功 ${ok} 场，失败 ${fail} 场`)
+  showStForm.value = false
+  loadShowtimes()
 }
 
 async function handleShowtimeDelete(st) {
@@ -118,7 +168,7 @@ async function handleShowtimeDelete(st) {
 
     <!-- SHOWTIME FORM MODAL -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showStForm" class="modal-overlay" @click.self="showStForm = false">
+      <div v-if="showStForm" class="modal-overlay">
         <div class="modal">
           <div class="modal-head"><h3>添加排片</h3><button class="btn-close" @click="showStForm = false">&times;</button></div>
           <div class="modal-body">
@@ -146,13 +196,34 @@ async function handleShowtimeDelete(st) {
                 </select>
               </div>
               <div class="form-group flex-1"><label>日期</label><input v-model="stForm.showDate" type="date" :min="selectedMovie?.releaseDate || ''" /></div>
-              <div class="form-group flex-1"><label>时间</label><input v-model="stForm.showTime" type="time" /></div>
-            </div>
-            <div class="form-row">
               <div class="form-group flex-1"><label>票价(¥)</label><input v-model.number="stForm.price" type="number" step="0.1" /></div>
             </div>
+            <div class="form-row">
+              <div class="form-group" style="width:120px"><label>首场时间</label><input v-model="stForm.startTime" type="time" /></div>
+              <div class="form-group" style="width:130px">
+                <label>间隔</label>
+                <select v-model="intervalPreset">
+                  <option :value="null">智能({{ suggestedInterval }}h)</option>
+                  <option :value="1.5">1.5 小时</option>
+                  <option :value="2">2 小时</option>
+                  <option :value="2.5">2.5 小时</option>
+                  <option :value="3">3 小时</option>
+                  <option value="custom">自定义</option>
+                </select>
+                <input v-if="intervalPreset === 'custom'" v-model.number="stForm.interval" type="number" step="0.5" min="0.5" max="8" style="margin-top:4px" />
+              </div>
+              <div class="form-group" style="width:90px"><label>场次数</label><input v-model.number="stForm.count" type="number" min="1" max="20" /></div>
+            </div>
+            <div v-if="generatedTimes.length" class="form-row" style="flex-wrap:wrap">
+              <div class="form-group" style="width:100%">
+                <label>场次列表（{{ generatedTimes.length }}场，点击移除）</label>
+                <div class="time-tags">
+                  <span v-for="(t, i) in generatedTimes" :key="i" class="time-tag" @click="removeTime(i)" :title="'点击移除 ' + t">{{ t }} ✕</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="modal-foot"><button class="btn-cancel" @click="showStForm = false">取消</button><button class="btn-save" @click="handleStSave">添加</button></div>
+          <div class="modal-foot"><button class="btn-cancel" @click="showStForm = false">取消</button><button class="btn-save" @click="handleStSave">批量添加（{{ generatedTimes.length }}场）</button></div>
         </div>
       </div>
     </Transition></Teleport>
@@ -396,6 +467,15 @@ td {
 .btn-save:hover {
   background: #b71c1c;
 }
+
+.time-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.time-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; background: #fce4ec; color: #d32f2f;
+  border-radius: 20px; font-size: 13px; cursor: pointer;
+  transition: all 0.2s;
+}
+.time-tag:hover { background: #f8bbd0; transform: scale(1.05); }
 
 .fade-enter-active,
 .fade-leave-active {

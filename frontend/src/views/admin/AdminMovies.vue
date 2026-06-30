@@ -24,7 +24,7 @@ const pagedMovies = computed(() => { const s = (mPage.value - 1) * PAGE_SIZE; re
 const GENRE_OPTIONS = [
   '动作', '喜剧', '科幻', '爱情', '恐怖', '悬疑', '奇幻',
   '动画', '剧情', '战争', '犯罪', '纪录片', '冒险', '古装',
-  '家庭', '音乐', '历史', '传记', '武侠', '灾难'
+  '家庭', '音乐', '历史', '传记', '武侠', '灾难','励志'
 ]
 
 const showMovieForm = ref(false)
@@ -138,7 +138,7 @@ function beforePosterUpload(file) {
 
     <!-- MOVIE FORM MODAL -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showMovieForm" class="modal-overlay" @click.self="closeMovieForm">
+      <div v-if="showMovieForm" class="modal-overlay">
         <div class="modal">
           <div class="modal-head"><h3>{{ editingMovieId ? '编辑电影' : '添加电影' }}</h3><button class="btn-close" @click="closeMovieForm">&times;</button></div>
           <div class="modal-body">

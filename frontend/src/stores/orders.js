@@ -53,7 +53,7 @@ export const useOrderStore = defineStore('orders', () => {
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const data = await apiGetOrderStatus(orderNo)
-        if (data.status !== 'processing') return data
+        if (data.status !== 'pending') return data
       } catch {
         // 忽略单次轮询错误，继续重试
       }

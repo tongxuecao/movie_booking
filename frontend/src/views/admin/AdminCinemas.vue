@@ -144,7 +144,7 @@ async function handleCinemaDelete(cinema) {
 
     <!-- CINEMA FORM MODAL -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showCinemaForm" class="modal-overlay" @click.self="showCinemaForm = false">
+      <div v-if="showCinemaForm" class="modal-overlay">
         <div class="modal">
           <div class="modal-head"><h3>{{ editingCinemaId ? '编辑影院' : '添加影院' }}</h3><button class="btn-close" @click="showCinemaForm = false">&times;</button></div>
           <div class="modal-body">
@@ -162,7 +162,7 @@ async function handleCinemaDelete(cinema) {
 
     <!-- HALLS DIALOG -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showHallsDialog" class="modal-overlay" @click.self="showHallsDialog = false">
+      <div v-if="showHallsDialog" class="modal-overlay">
         <div class="modal modal-lg">
           <div class="modal-head"><h3>{{ selectedCinemaName }} - 影厅列表</h3><button class="btn-close" @click="showHallsDialog = false">&times;</button></div>
           <div class="modal-body">
@@ -191,7 +191,7 @@ async function handleCinemaDelete(cinema) {
 
     <!-- HALL FORM MODAL -->
     <Teleport to="body"><Transition name="fade">
-      <div v-if="showHallForm" class="modal-overlay" @click.self="showHallForm = false">
+      <div v-if="showHallForm" class="modal-overlay">
         <div class="modal">
           <div class="modal-head"><h3>{{ editingHallId ? '编辑影厅' : '添加影厅' }}</h3><button class="btn-close" @click="showHallForm = false">&times;</button></div>
           <div class="modal-body">

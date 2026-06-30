@@ -21,11 +21,14 @@ const menuComponents = {
   cinemas: AdminCinemas,
 }
 
-const saved = window.location.hash.replace('#', '')
+const saved = (() => {
+  try { return localStorage.getItem('adminActiveMenu') } catch { return null }
+})() || window.location.hash.replace('#', '')
 const activeMenu = ref(menuComponents[saved] ? saved : 'movies')
 
 function switchMenu(menu) {
   activeMenu.value = menu
+  try { localStorage.setItem('adminActiveMenu', menu) } catch { /* ignore */ }
   window.location.hash = menu
 }
 </script>

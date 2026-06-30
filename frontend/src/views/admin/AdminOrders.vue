@@ -30,10 +30,10 @@ async function loadOrders() {
       <div class="toolbar">
         <el-select v-model="orderStatusFilter" placeholder="订单状态" clearable @change="orderPage = 1; loadOrders()">
           <el-option label="全部" value="" />
-          <el-option label="待支付" value="processing" />
+          <el-option label="待支付" value="pending" />
           <el-option label="已支付" value="paid" />
           <el-option label="已取消" value="cancelled" />
-          <el-option label="已完成" value="completed" />
+          <el-option label="已退款" value="refunded" />
         </el-select>
       </div>
     </div>
@@ -130,7 +130,7 @@ td {
   color: #4caf50;
 }
 
-.status-badge.processing {
+.status-badge.pending {
   background: #fff3e0;
   color: #ff9800;
 }
@@ -140,9 +140,9 @@ td {
   color: #999;
 }
 
-.status-badge.completed {
-  background: #e8f5e9;
-  color: #4caf50;
+.status-badge.refunded {
+  background: #e3f2fd;
+  color: #2196f3;
 }
 
 .status-badge.failed {
