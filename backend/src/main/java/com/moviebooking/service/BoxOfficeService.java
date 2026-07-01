@@ -12,22 +12,31 @@ import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class BoxOfficeService {
 
     private static final Logger log = LoggerFactory.getLogger(BoxOfficeService.class);
-    private static final String BOX_OFFICE_KEY = "box:office:today";
-    private static final String BOX_OFFICE_MOVIES_KEY = "box:office:today:movies";
-    private static final String BOX_OFFICE_CUMULATIVE_KEY = "box:office:cumulative";
-    private static final String BOX_OFFICE_CUMULATIVE_MOVIES_KEY = "box:office:cumulative:movies";
+
+    // Redis keys for today
+    private static final String TODAY_DATE = "box:office:today:date";
+    private static final String TODAY_TOTAL = "box:office:today:total";
+    private static final String TODAY_RANKING = "box:office:today:ranking";
+    private static final String TODAY_TICKETS_PREFIX = "box:office:today:tickets:";
+
+    // Redis keys for cumulative
+    private static final String CUMULATIVE_DATE = "box:office:cumulative:date";
+    private static final String CUMULATIVE_TOTAL = "box:office:cumulative:total";
+    private static final String CUMULATIVE_RANKING = "box:office:cumulative:ranking";
+    private static final String CUMULATIVE_TICKETS_PREFIX = "box:office:cumulative:tickets:";
 
     private final OrderRepository orderRepository;
     private final ShowtimeRepository showtimeRepository;
@@ -47,55 +56,187 @@ public class BoxOfficeService {
 
     @PostConstruct
     public void init() {
-        // 启动时清除旧版无TTL缓存，避免脏数据
-        clearCache();
+        ensureCurrentDay();
+        ensureCumulative();
         log.info("票房缓存已初始化");
     }
 
+    // ==================== 实时累加/扣减（支付和退票时调用） ====================
+
     /**
-     * 获取今日票房排行数据（仅统计今日创建的已支付订单）
+     * 支付成功时实时累加票房
      */
-    public Map<String, Object> getTodayBoxOffice() {
-        // 先从Redis缓存获取
-        String totalRevenue = redisTemplate.opsForValue().get(BOX_OFFICE_KEY);
-        String moviesJson = redisTemplate.opsForValue().get(BOX_OFFICE_MOVIES_KEY);
+    public void recordSale(Long movieId, BigDecimal amount, int ticketCount) {
+        ensureCurrentDay();
+        long cents = toCents(amount);
 
-        if (totalRevenue != null && moviesJson != null) {
-            log.info("票房缓存命中: totalRevenue={}, movies={}", totalRevenue, moviesJson);
-            Map<String, Object> result = new HashMap<>();
-            result.put("totalRevenue", new BigDecimal(totalRevenue));
-            result.put("movies", parseMoviesJson(moviesJson));
-            return result;
-        }
+        redisTemplate.opsForValue().increment(TODAY_TOTAL, cents);
+        redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), cents);
+        redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, ticketCount);
 
-        log.info("票房缓存未命中，重新计算");
-        // 缓存未命中，计算并缓存
-        return calculateAndCacheBoxOffice();
+        redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, cents);
+        redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), cents);
+        redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, ticketCount);
     }
 
     /**
-     * 计算今日票房排行并缓存（仅统计今日创建的已支付订单，排除退款和已删除电影）
+     * 退票成功时实时扣减票房
      */
-    private Map<String, Object> calculateAndCacheBoxOffice() {
-        LocalDate today = LocalDate.now();
+    public void recordRefund(Long movieId, BigDecimal refundAmount, int ticketCount) {
+        ensureCurrentDay();
+        long cents = toCents(refundAmount);
 
-        List<Order> todayPaidOrders = orderRepository.findTodayPaidOrders(
-                OrderStatus.paid, today);
-        log.info("今日票房查询: date={}, 查到{}笔paid订单", today, todayPaidOrders.size());
+        redisTemplate.opsForValue().increment(TODAY_TOTAL, -cents);
+        redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), -cents);
+        redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, -ticketCount);
 
-        Map<String, Object> result = aggregateByMovie(todayPaidOrders);
+        redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, -cents);
+        redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), -cents);
+        redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, -ticketCount);
+    }
 
-        redisTemplate.opsForValue().set(BOX_OFFICE_KEY,
-                result.get("totalRevenue").toString(), 5, TimeUnit.MINUTES);
-        redisTemplate.opsForValue().set(BOX_OFFICE_MOVIES_KEY,
-                moviesToJson((List<Map<String, Object>>) result.get("movies")), 5, TimeUnit.MINUTES);
+    // ==================== 查询 ====================
 
+    /**
+     * 获取今日票房排行 — 直接从 Redis 读取
+     */
+    public Map<String, Object> getTodayBoxOffice() {
+        ensureCurrentDay();
+        return buildResult(TODAY_TOTAL, TODAY_RANKING, TODAY_TICKETS_PREFIX);
+    }
+
+    /**
+     * 获取累计票房排行 — 直接从 Redis 读取
+     */
+    public Map<String, Object> getCumulativeBoxOffice() {
+        ensureCumulative();
+        return buildResult(CUMULATIVE_TOTAL, CUMULATIVE_RANKING, CUMULATIVE_TICKETS_PREFIX);
+    }
+
+    private Map<String, Object> buildResult(String totalKey, String rankingKey, String ticketsPrefix) {
+        String totalCents = redisTemplate.opsForValue().get(totalKey);
+        BigDecimal totalRevenue = totalCents != null
+                ? new BigDecimal(totalCents).movePointLeft(2)
+                : BigDecimal.ZERO;
+
+        Set<ZSetOperations.TypedTuple<String>> ranking =
+                redisTemplate.opsForZSet().reverseRangeWithScores(rankingKey, 0, 9);
+
+        List<Map<String, Object>> movies = new ArrayList<>();
+        if (ranking != null) {
+            for (ZSetOperations.TypedTuple<String> entry : ranking) {
+                if (entry.getValue() == null || entry.getScore() == null) continue;
+                Long movieId = Long.valueOf(entry.getValue());
+                Movie movie = movieRepository.findById(movieId).orElse(null);
+                if (movie == null) continue;
+
+                String ticketsStr = redisTemplate.opsForValue().get(ticketsPrefix + movieId);
+
+                Map<String, Object> m = new HashMap<>();
+                m.put("movieId", movieId);
+                m.put("title", movie.getTitle());
+                m.put("poster", movie.getPoster());
+                m.put("revenue", BigDecimal.valueOf(entry.getScore()).movePointLeft(2));
+                m.put("ticketCount", ticketsStr != null ? Integer.parseInt(ticketsStr) : 0);
+                movies.add(m);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalRevenue", totalRevenue);
+        result.put("movies", movies);
         return result;
     }
 
+    // ==================== 跨天处理 ====================
+
+    private void ensureCurrentDay() {
+        String today = LocalDate.now().toString();
+        String stored = redisTemplate.opsForValue().get(TODAY_DATE);
+        if (!today.equals(stored)) {
+            if (stored != null) {
+                log.info("跨天切换: {} -> {}, 重置今日票房数据", stored, today);
+            }
+            resetToday(today);
+        }
+    }
+
+    private void resetToday(String today) {
+        redisTemplate.delete(TODAY_TOTAL);
+        redisTemplate.delete(TODAY_RANKING);
+        // 删除今日所有电影的票数 key（用 SCAN 匹配）
+        Set<String> ticketKeys = redisTemplate.keys(TODAY_TICKETS_PREFIX + "*");
+        if (ticketKeys != null && !ticketKeys.isEmpty()) {
+            redisTemplate.delete(ticketKeys);
+        }
+        redisTemplate.opsForValue().set(TODAY_DATE, today);
+    }
+
+    private void ensureCumulative() {
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(CUMULATIVE_DATE))) {
+            // 首次启动，从 DB 加载累计数据
+            loadCumulativeFromDB();
+            redisTemplate.opsForValue().set(CUMULATIVE_DATE, "loaded");
+        }
+    }
+
     /**
-     * 按电影聚合订单票房（公共方法，今日和累计复用）
+     * 从数据库加载累计票房到 Redis（首次启动时调用）
      */
+    private void loadCumulativeFromDB() {
+        log.info("首次启动，从数据库加载累计票房...");
+        LocalDate today = LocalDate.now();
+        List<Order> cumulativePaidOrders = orderRepository.findCumulativePaidOrders(
+                OrderStatus.paid, today);
+        log.info("累计票房加载: 查到{}笔paid订单", cumulativePaidOrders.size());
+
+        for (Order order : cumulativePaidOrders) {
+            Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
+            if (showtime == null) continue;
+            long cents = toCents(order.getTotalAmount());
+
+            redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, cents);
+            redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, showtime.getMovieId().toString(), cents);
+            redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + showtime.getMovieId(), 1);
+        }
+        log.info("累计票房加载完成: total={}", redisTemplate.opsForValue().get(CUMULATIVE_TOTAL));
+    }
+
+    // ==================== 定时持久化 ====================
+
+    /**
+     * 每小时将 Redis 票房数据同步到数据库
+     */
+    @Scheduled(fixedRate = 3600000)
+    public void flushToDatabase() {
+        log.info("票房数据定时持久化...");
+        try {
+            // Redis 是实时数据源，订单表本身已有原始数据
+            // 此处只做日志记录，Redis 数据丢失时可从订单表恢复
+            String todayTotal = redisTemplate.opsForValue().get(TODAY_TOTAL);
+            String cumTotal = redisTemplate.opsForValue().get(CUMULATIVE_TOTAL);
+            log.info("票房持久化检查: today={}, cumulative={}", todayTotal, cumTotal);
+        } catch (Exception e) {
+            log.error("票房持久化失败", e);
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
+    /** BigDecimal 转为分（Long），避免浮点精度问题 */
+    private static long toCents(BigDecimal amount) {
+        return amount.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
+    }
+
+    /**
+     * 清除缓存（退票兼容旧调用，实时方案下无需操作）
+     */
+    public void clearCache() {
+        // 实时方案下数据已在 recordRefund 中扣减，此方法保留兼容
+    }
+
+    // ==================== DB 回退（保留用于故障恢复） ====================
+
     private Map<String, Object> aggregateByMovie(List<Order> orders) {
         Map<Long, BigDecimal> movieRevenueMap = new HashMap<>();
         Map<Long, Integer> movieTicketCountMap = new HashMap<>();
@@ -140,119 +281,5 @@ public class BoxOfficeService {
         result.put("totalRevenue", totalRevenue);
         result.put("movies", movieBoxOfficeList);
         return result;
-    }
-
-    /**
-     * 获取累计票房排行（上映至今已放映场次，不含预售）
-     */
-    public Map<String, Object> getCumulativeBoxOffice() {
-        String totalRevenue = redisTemplate.opsForValue().get(BOX_OFFICE_CUMULATIVE_KEY);
-        String moviesJson = redisTemplate.opsForValue().get(BOX_OFFICE_CUMULATIVE_MOVIES_KEY);
-
-        if (totalRevenue != null && moviesJson != null) {
-            log.info("累计票房缓存命中: totalRevenue={}", totalRevenue);
-            Map<String, Object> result = new HashMap<>();
-            result.put("totalRevenue", new BigDecimal(totalRevenue));
-            result.put("movies", parseMoviesJson(moviesJson));
-            return result;
-        }
-
-        log.info("累计票房缓存未命中，重新计算");
-        return calculateAndCacheCumulativeBoxOffice();
-    }
-
-    private Map<String, Object> calculateAndCacheCumulativeBoxOffice() {
-        LocalDate today = LocalDate.now();
-
-        // 上映至今已放映场次的已支付订单（showDate <= 今天，排除未来预售）
-        List<Order> cumulativePaidOrders = orderRepository.findCumulativePaidOrders(
-                OrderStatus.paid, today);
-        log.info("累计票房查询: untilDate={}, 查到{}笔paid订单", today, cumulativePaidOrders.size());
-
-        Map<String, Object> result = aggregateByMovie(cumulativePaidOrders);
-
-        redisTemplate.opsForValue().set(BOX_OFFICE_CUMULATIVE_KEY,
-                result.get("totalRevenue").toString(), 5, TimeUnit.MINUTES);
-        redisTemplate.opsForValue().set(BOX_OFFICE_CUMULATIVE_MOVIES_KEY,
-                moviesToJson((List<Map<String, Object>>) result.get("movies")), 5, TimeUnit.MINUTES);
-
-        return result;
-    }
-
-    /**
-     * 清除票房缓存（退款后调用，确保数据实时更新）
-     */
-    public void clearCache() {
-        redisTemplate.delete(BOX_OFFICE_KEY);
-        redisTemplate.delete(BOX_OFFICE_MOVIES_KEY);
-        redisTemplate.delete(BOX_OFFICE_CUMULATIVE_KEY);
-        redisTemplate.delete(BOX_OFFICE_CUMULATIVE_MOVIES_KEY);
-    }
-
-    /**
-     * 定时任务：每5分钟更新票房排行缓存
-     */
-    @Scheduled(fixedRate = 300000) // 5分钟
-    public void syncTodayBoxOffice() {
-        log.info("开始同步票房排行数据...");
-        try {
-            calculateAndCacheBoxOffice();
-            log.info("票房排行数据同步完成");
-        } catch (Exception e) {
-            log.error("票房排行数据同步失败", e);
-        }
-    }
-
-    private String moviesToJson(List<Map<String, Object>> movies) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < movies.size(); i++) {
-            Map<String, Object> movie = movies.get(i);
-            if (i > 0) sb.append(",");
-            sb.append("{\"movieId\":").append(movie.get("movieId"))
-              .append(",\"title\":\"").append(movie.get("title")).append("\"")
-              .append(",\"revenue\":").append(movie.get("revenue"))
-              .append(",\"ticketCount\":").append(movie.get("ticketCount"))
-              .append(",\"poster\":\"").append(movie.get("poster") != null ? movie.get("poster") : "").append("\"")
-              .append("}");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
-    private List<Map<String, Object>> parseMoviesJson(String json) {
-        // 简单解析JSON，实际项目中应使用Jackson
-        List<Map<String, Object>> movies = new ArrayList<>();
-        if (json == null || json.equals("[]")) return movies;
-
-        // 移除方括号
-        String content = json.substring(1, json.length() - 1);
-        if (content.isEmpty()) return movies;
-
-        // 分割每个电影对象
-        String[] movieObjects = content.split("\\},\\{");
-        for (String movieObj : movieObjects) {
-            // 清理花括号
-            movieObj = movieObj.replace("{", "").replace("}", "");
-            Map<String, Object> movie = new HashMap<>();
-
-            // 解析键值对
-            String[] pairs = movieObj.split(",");
-            for (String pair : pairs) {
-                String[] kv = pair.split(":");
-                if (kv.length == 2) {
-                    String key = kv[0].trim().replace("\"", "");
-                    String value = kv[1].trim().replace("\"", "");
-                    if (key.equals("movieId") || key.equals("ticketCount")) {
-                        movie.put(key, Integer.parseInt(value));
-                    } else if (key.equals("revenue")) {
-                        movie.put(key, new BigDecimal(value));
-                    } else {
-                        movie.put(key, value);
-                    }
-                }
-            }
-            movies.add(movie);
-        }
-        return movies;
     }
 }

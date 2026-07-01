@@ -287,6 +287,11 @@ public class OrderService {
                 NotificationType.order);
         }
 
+        // 实时累加票房
+        if (st != null) {
+            boxOfficeService.recordSale(st.getMovieId(), order.getTotalAmount(), orderSeats.size());
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", orderNo);
         result.put("status", "paid");
@@ -333,8 +338,9 @@ public class OrderService {
         // 释放用户锁（如果还在）
         seatLockService.releaseUserLock(userId);
 
-        // 清除票房缓存，确保退款后首页数据实时更新
-        boxOfficeService.clearCache();
+        // 实时扣减票房
+        int ticketCount = orderSeatRepository.findByOrderId(order.getId()).size();
+        boxOfficeService.recordRefund(showtime.getMovieId(), refundAmount, ticketCount);
 
         // 发送退票通知
         Movie refundMovie = movieRepository.findById(showtime.getMovieId()).orElse(null);
