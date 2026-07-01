@@ -12,7 +12,6 @@ for i, key in ipairs(KEYS) do
     local val = redis.call('GET', key)
     if val and val ~= '' then
         -- 座位已被锁定，返回冲突的 key
-        redis.call('EVAL', 'return 0', 0)  -- 这里不能直接返回冲突ID，改用下面的方式
         return {0, key}
     end
 end

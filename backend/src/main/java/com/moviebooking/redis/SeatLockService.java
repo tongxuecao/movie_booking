@@ -10,8 +10,8 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SeatLockService {
@@ -122,6 +122,17 @@ public class SeatLockService {
             }
         }
         redisTemplate.delete(userLockKey);
+    }
+
+    /**
+     * 获取某场次所有被 Redis 锁定的座位 ID 集合
+     */
+    public Set<Long> getLockedSeatIds(Long showtimeId) {
+        Set<String> keys = redisTemplate.keys(LOCK_KEY_PREFIX + showtimeId + ":*");
+        if (keys == null || keys.isEmpty()) return Collections.emptySet();
+        return keys.stream()
+                .map(k -> Long.parseLong(k.substring(k.lastIndexOf(":") + 1)))
+                .collect(Collectors.toSet());
     }
 
     /**

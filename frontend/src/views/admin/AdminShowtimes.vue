@@ -9,7 +9,10 @@ const movieStore = useMovieStore()
 const cinemaStore = useCinemaStore()
 
 const showStForm = ref(false)
-const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', showDate: '', startTime: '09:00', interval: 2.5, count: 3, price: 49.9 })
+const today = () => fmtLocalDate(new Date())
+const stForm = reactive({ movieId: '', cinemaId: '', hallId: '', dateStart: today(), dateEnd: '', startTime: '09:00', interval: 2.5, count: 3, price: 49.9 })
+const minDate = computed(() => selectedMovie.value?.releaseDate || '')
+const selectedDates = ref(new Set())
 const selectedMovie = computed(() => movieStore.movies.find(m => m.id === stForm.movieId))
 const suggestedInterval = computed(() => {
   const d = selectedMovie.value?.duration || 120
@@ -42,6 +45,51 @@ function regenerateTimes() {
 }
 
 function removeTime(index) { generatedTimes.value.splice(index, 1) }
+
+function fmtLocalDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const generatedDates = computed(() => {
+  if (!stForm.dateStart) return []
+  const [sy, sm, sd] = stForm.dateStart.split('-').map(Number)
+  const end = stForm.dateEnd || stForm.dateStart
+  const [ey, em, ed] = end.split('-').map(Number)
+  const dates = []
+  const d = new Date(sy, sm - 1, sd)
+  const endDate = new Date(ey, em - 1, ed)
+  while (d <= endDate) {
+    dates.push(fmtLocalDate(d))
+    d.setDate(d.getDate() + 1)
+  }
+  return dates
+})
+
+const selectedDatesArr = computed(() =>
+  [...selectedDates.value].sort()
+)
+
+const weekLabel = (d) => ['日','一','二','三','四','五','六'][new Date(d + 'T00:00:00').getDay()]
+
+function toggleDate(d) {
+  const s = new Set(selectedDates.value)
+  s.has(d) ? s.delete(d) : s.add(d)
+  selectedDates.value = s
+}
+function selectAllDates() { selectedDates.value = new Set(generatedDates.value) }
+function selectWeekdays() { selectedDates.value = new Set(generatedDates.value.filter(d => ![0,6].includes(new Date(d + 'T00:00:00').getDay()))) }
+
+watch(generatedDates, (dates) => {
+  const cur = new Set(selectedDates.value)
+  const valid = new Set(dates)
+  const next = new Set()
+  for (const d of cur) { if (valid.has(d)) next.add(d) }
+  if (next.size === 0 && dates.length) next.add(dates[0])
+  selectedDates.value = next
+}, { immediate: true })
 
 watch([() => stForm.startTime, () => stForm.interval, () => stForm.count, intervalPreset], () => {
   if (intervalPreset.value === null) stForm.interval = suggestedInterval.value
@@ -112,7 +160,9 @@ async function loadShowtimes() {
 }
 
 function openStAdd() {
-  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', cinemaId: '', hallId: '', showDate: '', startTime: '09:00', interval: suggestedInterval.value, count: 3, price: 49.9 })
+  const t = today()
+  const weekEnd = new Date(t + 'T00:00:00'); weekEnd.setDate(weekEnd.getDate() + 6)
+  Object.assign(stForm, { movieId: movieStore.movies[0]?.id || '', cinemaId: '', hallId: '', dateStart: t, dateEnd: weekEnd.toISOString().substring(0, 10), startTime: '09:00', interval: suggestedInterval.value, count: 3, price: 49.9 })
   intervalPreset.value = null
   halls.value = []
   regenerateTimes()
@@ -131,21 +181,22 @@ async function onCinemaChange() {
 }
 
 async function handleStSave() {
-  if (!stForm.movieId || !stForm.hallId || !stForm.showDate) { ElMessage.warning('请填写完整信息'); return }
-  if (selectedMovie.value?.releaseDate && stForm.showDate < selectedMovie.value.releaseDate) {
-    ElMessage.warning('拍片日期不能早于电影上映日期（' + selectedMovie.value.releaseDate + '）')
-    return
-  }
+  if (!stForm.movieId || !stForm.hallId) { ElMessage.warning('请填写完整信息'); return }
+  const dates = selectedDatesArr.value
+  if (!dates.length) { ElMessage.warning('请至少选择一个日期'); return }
   if (generatedTimes.value.length === 0) { ElMessage.warning('请至少添加一个场次时间'); return }
   let ok = 0, fail = 0
-  for (const time of generatedTimes.value) {
-    try {
-      await apiCreateShowtime({ movieId: Number(stForm.movieId), hallId: Number(stForm.hallId), showDate: stForm.showDate, showTime: time, price: Number(stForm.price) })
-      ok++
-    } catch (e) {
-      fail++
-      ElMessage.error(time + ' ' + (e.message || '添加失败'))
-      break
+  outer:
+  for (const date of dates) {
+    for (const time of generatedTimes.value) {
+      try {
+        await apiCreateShowtime({ movieId: Number(stForm.movieId), hallId: Number(stForm.hallId), showDate: date, showTime: time, price: Number(stForm.price) })
+        ok++
+      } catch (e) {
+        fail++
+        ElMessage.error(date + ' ' + time + ' ' + (e.message || '添加失败'))
+        break outer
+      }
     }
   }
   if (fail === 0) ElMessage.success(`成功添加 ${ok} 场排片`)
@@ -234,8 +285,34 @@ async function handleShowtimeDelete(st) {
                   <option v-for="h in halls" :key="h.id" :value="h.id">{{ h.name }}（{{ h.seatCount }}座 / {{ h.hallType }}）</option>
                 </select>
               </div>
-              <div class="form-group flex-1"><label>日期</label><input v-model="stForm.showDate" type="date" :min="selectedMovie?.releaseDate || ''" /></div>
               <div class="form-group flex-1"><label>票价(¥)</label><input v-model.number="stForm.price" type="number" step="0.1" /></div>
+            </div>
+            <div class="form-group">
+              <label>日期范围</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input v-model="stForm.dateStart" type="date" :min="minDate" style="flex:1" />
+                <span style="color:#999;flex-shrink:0">至</span>
+                <input v-model="stForm.dateEnd" type="date" :min="stForm.dateStart || minDate" style="flex:1" />
+              </div>
+            </div>
+            <div v-if="generatedDates.length" class="date-grid-wrap">
+              <div class="date-actions">
+                <button type="button" class="btn-date-quick" @click="selectAllDates">全选</button>
+                <button type="button" class="btn-date-quick" @click="selectWeekdays">仅工作日</button>
+                <span class="date-count">已选 {{ selectedDates.size }} / {{ generatedDates.length }} 天</span>
+              </div>
+              <div class="date-grid">
+                <button
+                  v-for="d in generatedDates" :key="d"
+                  type="button"
+                  class="date-cell"
+                  :class="{ active: selectedDates.has(d) }"
+                  @click="toggleDate(d)"
+                >
+                  <span class="date-cell-day">{{ d.slice(5) }}</span>
+                  <span class="date-cell-week">{{ weekLabel(d) }}</span>
+                </button>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group" style="width:120px"><label>首场时间</label><input v-model="stForm.startTime" type="time" /></div>
@@ -255,14 +332,14 @@ async function handleShowtimeDelete(st) {
             </div>
             <div v-if="generatedTimes.length" class="form-row" style="flex-wrap:wrap">
               <div class="form-group" style="width:100%">
-                <label>场次列表（{{ generatedTimes.length }}场，点击移除）</label>
+                <label>场次列表（{{ selectedDatesArr.length }}天 × {{ generatedTimes.length }}场 = {{ selectedDatesArr.length * generatedTimes.length }}场，点击移除）</label>
                 <div class="time-tags">
                   <span v-for="(t, i) in generatedTimes" :key="i" class="time-tag" @click="removeTime(i)" :title="'点击移除 ' + t">{{ t }} ✕</span>
                 </div>
               </div>
             </div>
           </div>
-          <div class="modal-foot"><button class="btn-cancel" @click="showStForm = false">取消</button><button class="btn-save" @click="handleStSave">批量添加（{{ generatedTimes.length }}场）</button></div>
+          <div class="modal-foot"><button class="btn-cancel" @click="showStForm = false">取消</button><button class="btn-save" @click="handleStSave">批量添加（{{ selectedDatesArr.length * generatedTimes.length }}场）</button></div>
         </div>
       </div>
     </Transition></Teleport>
@@ -523,6 +600,20 @@ td {
 .btn-save:hover {
   background: #b71c1c;
 }
+
+/* 日期网格 */
+.date-grid-wrap { margin-bottom: 16px; }
+.date-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.btn-date-quick { padding: 3px 10px; font-size: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s; }
+.btn-date-quick:hover { background: #e0e0e0; color: #333; }
+.date-count { font-size: 12px; color: #999; margin-left: auto; }
+.date-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.date-cell { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.date-cell:hover { border-color: #d32f2f; }
+.date-cell.active { background: #ffebee; border-color: #d32f2f; color: #d32f2f; font-weight: 600; }
+.date-cell-day { font-size: 13px; }
+.date-cell-week { font-size: 10px; color: #999; margin-top: 1px; }
+.date-cell.active .date-cell-week { color: #d32f2f; }
 
 .time-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .time-tag {

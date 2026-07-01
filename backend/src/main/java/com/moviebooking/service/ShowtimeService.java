@@ -5,6 +5,7 @@ import com.moviebooking.common.PageResult;
 import com.moviebooking.dto.ShowtimeRequest;
 import com.moviebooking.dto.BatchShowtimeRequest;
 import com.moviebooking.entity.*;
+import com.moviebooking.redis.SeatLockService;
 import com.moviebooking.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,16 +26,18 @@ public class ShowtimeService {
     private final CinemaRepository cinemaRepository;
     private final SeatRepository seatRepository;
     private final MovieRepository movieRepository;
+    private final SeatLockService seatLockService;
 
     @Autowired
     public ShowtimeService(ShowtimeRepository showtimeRepository, HallRepository hallRepository,
                            CinemaRepository cinemaRepository, SeatRepository seatRepository,
-                           MovieRepository movieRepository) {
+                           MovieRepository movieRepository, SeatLockService seatLockService) {
         this.showtimeRepository = showtimeRepository;
         this.hallRepository = hallRepository;
         this.cinemaRepository = cinemaRepository;
         this.seatRepository = seatRepository;
         this.movieRepository = movieRepository;
+        this.seatLockService = seatLockService;
     }
 
     public Map<String, Object> getShowtimeDetail(Long showtimeId) {
@@ -121,6 +124,7 @@ public class ShowtimeService {
 
         List<Seat> seats = seatRepository.findByHallIdOrderByRowNumAscColNumAsc(hall.getId());
         List<Long> soldSeatIds = seatRepository.findSoldSeatIdsByShowtimeId(showtimeId);
+        Set<Long> lockedSeatIds = seatLockService.getLockedSeatIds(showtimeId);
 
         List<Map<String, Object>> seatList = new ArrayList<>();
         for (Seat seat : seats) {
@@ -132,7 +136,7 @@ public class ShowtimeService {
 
             if (seat.getStatus() == com.moviebooking.entity.enums.SeatStatus.maintenance) {
                 seatMap.put("status", "locked");
-            } else if (soldSeatIds.contains(seat.getId())) {
+            } else if (soldSeatIds.contains(seat.getId()) || lockedSeatIds.contains(seat.getId())) {
                 seatMap.put("status", "sold");
             } else {
                 seatMap.put("status", "available");

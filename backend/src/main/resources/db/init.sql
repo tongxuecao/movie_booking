@@ -106,7 +106,7 @@ CREATE TABLE halls (
     name            VARCHAR(50) NOT NULL COMMENT '影厅名称',
     seat_rows       INT COMMENT '座位行数',
     seat_cols       INT COMMENT '座位列数',
-    hall_type       VARCHAR(10) DEFAULT 'normal' COMMENT '影厅类型: normal/imax/vip/threeD',
+    hall_type       VARCHAR(10) DEFAULT 'normal' COMMENT '影厅类型: normal/imax/vip/couple/threeD',
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (cinema_id) REFERENCES cinemas(id) ON DELETE CASCADE,

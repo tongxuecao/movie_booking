@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>电影票预订系统 - 系统流程图</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #f5f5f5;
+      font-family: 'Microsoft YaHei', sans-serif;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      color: #d32f2f;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      color: #333;
+      margin: 32px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #eee;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      padding: 16px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    th {
+      background: #fafafa;
+      color: #666;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    td:first-child { font-weight: 600; color: #333; }
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      background: #fce4ec;
+      color: #e53935;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>电影票预订系统</h1>
+  <p class="subtitle">技术栈：Vue 3 + Spring Boot 3.2.5 + MySQL 8.0 + Redis</p>
+
+  <h2>一、系统架构图</h2>
+  <div class="mermaid">
+    graph LR
+      subgraph 前端
+        A[Vue 3 + Vite]
+        B[Element Plus]
+        C[Pinia 状态管理]
+        D[localStorage]
+      end
+
+      subgraph 后端 ["Spring Boot 3.2.5 /api"]
+        E[Controller 层]
+        F[Service 层]
+        G[Repository 层<br/>Spring Data JPA]
+        H[JWT 拦截器]
+        I[Redis Stream<br/>异步处理]
+      end
+
+      subgraph 数据层
+        J[(MySQL 8.0<br/>movie_ticket)]
+        K[(Redis<br/>锁座 + 缓存)]
+      end
+
+      A -->|HTTP REST| E
+      E --> H
+      H -->|认证通过| F
+      F --> G
+      F --> I
+      G --> J
+      I --> K
+      F --> K
+  </div>
+
+  <h2>二、核心交易流程图</h2>
+  <div class="mermaid">
+    flowchart TD
+      A[用户浏览电影] --> B[选择场次]
+      B --> C[进入选座页面]
+      C --> D[点击座位]
+      D --> E{Redis Lua 原子锁座}
+      E -->|成功<br/>TTL: 15分钟| F[创建订单<br/>状态: pending]
+      E -->|失败<br/>座位已被占| D
+
+      F --> G[用户确认支付]
+      G --> H{虚拟钱包余额}
+      H -->|余额充足| I[乐观锁扣款]
+      H -->|余额不足| J[提示充值]
+
+      I -->|扣款成功| K[订单状态: paid]
+      I -->|并发冲突| I
+
+      F -.->|15分钟超时| L[自动取消]
+      F -.->|用户主动取消| M[释放座位]
+  </div>
+
+  <h2>三、用户端完整流程图</h2>
+  <div class="mermaid">
+    flowchart TD
+      A[首页] --> B{是否登录}
+      B -->|否| C[游客浏览]
+      B -->|是| D[登录用户]
+
+      C --> E[查看电影列表]
+      C --> F[电影详情页]
+      F --> G[点击选座购票]
+      G --> H[跳转登录页]
+
+      D --> I[电影详情页]
+      I --> J[选座购票]
+      I --> K[想看/取消想看]
+      I --> L[查看/发布评价]
+
+      J --> M[选择场次]
+      M --> N[选择座位]
+      N --> O[锁座 → 订单 → 支付]
+
+      K --> P[个人中心想看列表]
+      P -->|已上映| M
+
+      L --> R[发布评价]
+      L --> S[浏览评价]
+
+      D --> T[个人中心]
+      T --> U[我的订单]
+      T --> V[想看列表]
+      T --> W[修改资料]
+      T --> X[修改密码]
+      T --> Y[账户充值]
+
+      U --> Z[查看订单详情]
+      U --> AA[取消订单]
+      U --> AB[去支付]
+  </div>
+
+  <h2>四、后台管理流程图</h2>
+  <div class="mermaid">
+    flowchart TD
+      A[管理员登录] --> B[管理后台]
+
+      B --> C[电影管理]
+      B --> D[影院管理]
+      B --> E[排片管理]
+      B --> F[订单管理]
+      B --> G[用户管理]
+      B --> H[数据统计]
+
+      C --> C1[添加电影<br/>上传海报/剧照]
+      C --> C2[编辑电影]
+      C --> C3[删除电影]
+
+      D --> D1[影院 CRUD]
+      D --> D2[影厅管理]
+      D2 --> D2a[添加影厅<br/>选择类型: normal/imax/vip/couple/3D]
+      D2 --> D2b[编辑影厅<br/>修改类型同步更新座位]
+      D2 --> D2c[删除影厅<br/>级联删除座位/排片/订单]
+
+      E --> E1[批量添加排片<br/>多日期 × 多时间]
+      E --> E2[批量删除排片]
+      E --> E3[按电影/日期筛选]
+
+      F --> F1[按状态下拉筛选]
+      F --> F2[按用户名/手机号搜索]
+      F --> F3[查看订单详情]
+
+      G --> G1[按用户名/手机号搜索]
+      G --> G2[查看用户详情]
+      G --> G3[禁用/启用用户]
+
+      H --> H1[票房统计]
+      H --> H2[用户统计]
+  </div>
+
+  <h2>五、核心流程技术细节</h2>
+  <table>
+    <tr><th>阶段</th><th>技术</th><th>说明</th></tr>
+    <tr><td>认证</td><td><span class="tag">JWT</span></td><td>7天过期，拦截器校验，排除游客路径</td></tr>
+    <tr><td>选座锁座</td><td><span class="tag">Redis Lua</span></td><td>原子性检查座位状态 + 锁定，15分钟 TTL</td></tr>
+    <tr><td>订单创建</td><td><span class="tag">JPA</span></td><td>关联 showtime + seats，生成唯一订单号</td></tr>
+    <tr><td>异步处理</td><td><span class="tag">Redis Stream</span></td><td>订单状态流转，超时自动取消</td></tr>
+    <tr><td>支付扣款</td><td><span class="tag">乐观锁</span></td><td>version 字段防并发，虚拟钱包 BigDecimal 计算</td></tr>
+    <tr><td>状态同步</td><td><span class="tag">轮询</span></td><td>前端轮询订单状态接口，实时更新 UI</td></tr>
+    <tr><td>想看功能</td><td><span class="tag">Redis Set</span></td><td>双向索引：movie:wish:{id} ↔ user:wish:{id}</td></tr>
+    <tr><td>票房排行</td><td><span class="tag">Redis Cache</span></td><td>定时同步，缓存今日/累计票房</td></tr>
+    <tr><td>图片上传</td><td><span class="tag">Multipart</span></td><td>本地存储 uploads/，前端 resolveImageUrl 拼接</td></tr>
+    <tr><td>密码加密</td><td><span class="tag">BCrypt</span></td><td>修改密码需校验旧密码</td></tr>
+  </table>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default' });
+</script>
+</body>
+</html>
