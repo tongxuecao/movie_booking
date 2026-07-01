@@ -64,35 +64,47 @@ public class BoxOfficeService {
     // ==================== 实时累加/扣减（支付和退票时调用） ====================
 
     /**
-     * 支付成功时实时累加票房
+     * 支付成功时实时累加票房（仅今日场次计入今日票房，累计票房排除预售）
      */
-    public void recordSale(Long movieId, BigDecimal amount, int ticketCount) {
+    public void recordSale(Long movieId, LocalDate showDate, BigDecimal amount, int ticketCount) {
         ensureCurrentDay();
         long cents = toCents(amount);
+        boolean isToday = showDate.equals(LocalDate.now());
 
-        redisTemplate.opsForValue().increment(TODAY_TOTAL, cents);
-        redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), cents);
-        redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, ticketCount);
+        // 今日票房：只计入今天放映的场次
+        if (isToday) {
+            redisTemplate.opsForValue().increment(TODAY_TOTAL, cents);
+            redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), cents);
+            redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, ticketCount);
+        }
 
-        redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, cents);
-        redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), cents);
-        redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, ticketCount);
+        // 累计票房：排除未来预售（showDate > today 不计入累计）
+        if (!showDate.isAfter(LocalDate.now())) {
+            redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, cents);
+            redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), cents);
+            redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, ticketCount);
+        }
     }
 
     /**
      * 退票成功时实时扣减票房
      */
-    public void recordRefund(Long movieId, BigDecimal refundAmount, int ticketCount) {
+    public void recordRefund(Long movieId, LocalDate showDate, BigDecimal refundAmount, int ticketCount) {
         ensureCurrentDay();
         long cents = toCents(refundAmount);
+        boolean isToday = showDate.equals(LocalDate.now());
 
-        redisTemplate.opsForValue().increment(TODAY_TOTAL, -cents);
-        redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), -cents);
-        redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, -ticketCount);
+        if (isToday) {
+            redisTemplate.opsForValue().increment(TODAY_TOTAL, -cents);
+            redisTemplate.opsForZSet().incrementScore(TODAY_RANKING, movieId.toString(), -cents);
+            redisTemplate.opsForValue().increment(TODAY_TICKETS_PREFIX + movieId, -ticketCount);
+        }
 
-        redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, -cents);
-        redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), -cents);
-        redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, -ticketCount);
+        if (!showDate.isAfter(LocalDate.now())) {
+            redisTemplate.opsForValue().increment(CUMULATIVE_TOTAL, -cents);
+            redisTemplate.opsForZSet().incrementScore(CUMULATIVE_RANKING, movieId.toString(), -cents);
+            redisTemplate.opsForValue().increment(CUMULATIVE_TICKETS_PREFIX + movieId, -ticketCount);
+        }
     }
 
     // ==================== 查询 ====================

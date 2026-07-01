@@ -289,7 +289,7 @@ public class OrderService {
 
         // 实时累加票房
         if (st != null) {
-            boxOfficeService.recordSale(st.getMovieId(), order.getTotalAmount(), orderSeats.size());
+            boxOfficeService.recordSale(st.getMovieId(), st.getShowDate(), order.getTotalAmount(), orderSeats.size());
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -340,7 +340,7 @@ public class OrderService {
 
         // 实时扣减票房
         int ticketCount = orderSeatRepository.findByOrderId(order.getId()).size();
-        boxOfficeService.recordRefund(showtime.getMovieId(), refundAmount, ticketCount);
+        boxOfficeService.recordRefund(showtime.getMovieId(), showtime.getShowDate(), refundAmount, ticketCount);
 
         // 发送退票通知
         Movie refundMovie = movieRepository.findById(showtime.getMovieId()).orElse(null);
